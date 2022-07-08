@@ -8,7 +8,10 @@ Created on Mon Apr  4 16:25:22 2022
 
 import numpy as np
 
-def FF3Node(y,t,a,constants):
+def evolveFF3Node(y,t,a,constants): 
+    '''
+    set of differential equations for the continous parts of the moment equations and path mutual information of the three node feed forward system.
+    '''
     c_1,c_2,c_3,c_4,c_5,c_6=constants
     b1ac,b2ac,a1c,b1c,a2c,b2c,abc,mi=y
     dydt=[c_3*a-c_4*b1ac-c_5*b2ac+c_5*b1ac*b1ac, #b1ac
@@ -22,7 +25,10 @@ def FF3Node(y,t,a,constants):
           ]
     return dydt
 
-def FF2Node(y,t,a,constants):
+def evolveFF2Node(y,t,a,constants): 
+    '''
+    set of differential equations for the continous parts of the moment equations and path mutual information of the two node feed forward system.
+    '''
     a1,a2,mi=y
     c_1,c_2,c_3,c_4=constants
     dydt=[c_1-c_2*a1-c_3*(a2-a1*a1), #a1
@@ -31,7 +37,10 @@ def FF2Node(y,t,a,constants):
         ]
     return dydt
 
-def matrixAC(d,a,c,mAC):
+def updateMatrixAC(d,a,c,mAC): 
+    '''
+    integration matrix for the evaluation of the probability distribution conditional on A and C
+    '''
     for i in range(d):
         for j in range(d):
             if i==j:
@@ -43,7 +52,10 @@ def matrixAC(d,a,c,mAC):
     return 
 
 
-def matrixC(d,c,mC):
+def updateMatrixC(d,c,mC):
+    '''
+    integration matrix for the evaluation of the probability distribution conditional on C
+    '''
     for a in range(d*d):
         for b in range(d*d):
             if b==(a+d): 
@@ -58,7 +70,10 @@ def matrixC(d,c,mC):
                 mC[a][b]=-(c[0]+c[1]*int(a/d)+c[2]*int(a/d)+c[3]*(b % d)+c[4]*(b % d))
     return
 
-def matrixB(d,c1,c2,c3):
+def updateMatrixB(d,c1,c2,c3):
+    '''
+    integration matrix for the evaluation of the probability distribution conditional on B
+    '''
     ma=np.zeros((d,d))
     for i in range(d):
         for j in range(d):
@@ -70,7 +85,10 @@ def matrixB(d,c1,c2,c3):
                 ma[i][j]=c1
     return ma
 
-def dN(P,d):
+def dN(P,d): 
+    '''
+    stochastic jump for one dimensional array
+    '''
     jump=np.zeros(d)
     for i in range(1,d):
         jump[i]=i-1
@@ -79,6 +97,9 @@ def dN(P,d):
     return P
 
 def dN2D(P,d):
+    '''
+    stochastic jump for two dimensional array
+    '''
     jump=np.zeros(d)
     for i in range(1,d):
         jump[i]=i-1
@@ -91,6 +112,9 @@ def dN2D(P,d):
     return P
 
 def mean2d(P,d):
+    '''
+    mean of the copy numbers stored in a two dimensional array
+    '''
     if np.shape(P)!= (d,d):
         P=np.reshape(P,(d,d))
     mean=0
@@ -100,6 +124,9 @@ def mean2d(P,d):
     return mean
 
 def variance(firstmoment,secondmoment):
+    '''
+    calculation of the variance
+    '''
     var=np.zeros(len(firstmoment))
     for i in range(len(firstmoment)):
         var[i]=np.sqrt(secondmoment[i]-firstmoment[i]*firstmoment[i])

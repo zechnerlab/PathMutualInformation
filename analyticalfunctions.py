@@ -9,7 +9,10 @@ Created on Mon Apr 25 10:19:43 2022
 import numpy as np
 from scipy.integrate import odeint
 
-def FF3_analytical(y,t,const):
+def evolveFF3_analytical(y,t,const):
+    '''
+    set of differential equations for the analytical solution of the path mutual information for the three node feed forward network
+    '''
     am,bm,s_AC,s_AC_cross,s_AC_a,var_AC,s_C_a,s_cross,s_C,covar_C,var_C_a,var_C,mi=y
     c1,c2,c3,c4,c5,c6=const
     dydt=[ c1-c2*am, #am
@@ -28,7 +31,10 @@ def FF3_analytical(y,t,const):
           ]
     return dydt
 
-def FF2_analytical(y,t,constants):
+def evolveFF2_analytical(y,t,constants):
+    '''
+    set of differential equations for the analytical solution of the path mutual information for the two node feed forward network
+    '''
     am,sm,mi=y
     c1,c2,c3,c4=constants
     dydt=[ c1-c2*am, #am
@@ -37,7 +43,22 @@ def FF2_analytical(y,t,constants):
           ]
     return dydt
 
-def reacvel_3nodes(c_prod_list,const,iniconds,timevec,species):
+def calculateReacvel_3nodes(vel_list,const,iniconds,timevec,species):
+    '''
+
+    Parameters
+    ----------
+    vel_list : array containing the values of the relative reaction velocity
+    const : list containing the reaction constants
+    iniconds : list with three integer entries; initial conditions of the system
+    timevec : array of float; time vector of the integration
+    species : string; determines which reaction velocity is to be analysied, one can choose between 'A', 'B' and 'C'
+
+    Returns
+    -------
+    rateV : array of float; the rate corresponding to the reaction velocity and the parameters in const 
+
+    '''
     a0,b0,c0=iniconds
     if species=='A':
         k=0
@@ -48,16 +69,31 @@ def reacvel_3nodes(c_prod_list,const,iniconds,timevec,species):
     if species=='C':
         k=4
         div=c0/b0
-    rateV=np.zeros(len(c_prod_list))
+    rateV=np.zeros(len(vel_list))
     y0=[a0,b0,0,0,0,0,0,0,0,0,0,0,0]
-    for i in range(len(c_prod_list)):
-        const[k]=c_prod_list[i]
-        const[k+1]=c_prod_list[i]/div
-        sol=odeint(FF3_analytical,y0,timevec, args=(const,))
+    for i in range(len(vel_list)):
+        const[k]=vel_list[i]
+        const[k+1]=vel_list[i]/div
+        sol=odeint(evolveFF3_analytical,y0,timevec, args=(const,))
         rateV[i]=0.5*const[4]*(sol[-1,5]-sol[-1,11])/sol[-1,1]     
     return rateV
 
-def reacvel_2nodes(c_prod_list,const,iniconds,timevec,species):
+def calculateReacvel_2nodes(vel_list,const,iniconds,timevec,species):
+    '''
+
+    Parameters
+    ----------
+    vel_list : array containing the values of the relative reaction velocity
+    const : list containing the reaction constants
+    iniconds : list with two integer entries; initial conditions of the system
+    timevec : array of float; time vector of the integration
+    species : string; determines which reaction velocity is to be analysied, one can choose between 'A', 'B' and 'C'
+
+    Returns
+    -------
+    rateV : array of float; the rate corresponding to the reaction velocity and the parameters in const 
+
+    '''
     a0,b0=iniconds
     if species=='A':
         k=0
@@ -65,27 +101,34 @@ def reacvel_2nodes(c_prod_list,const,iniconds,timevec,species):
     if species=='B':
         k=2
         div=b0/a0
-    rateV=np.zeros(len(c_prod_list))
+    rateV=np.zeros(len(vel_list))
     y0=[a0,0,0]
-    for i in range(len(c_prod_list)):
-        const[k]=c_prod_list[i]
-        const[k+1]=c_prod_list[i]/div
-        sol=odeint(FF2_analytical,y0,timevec, args=(const,))
+    for i in range(len(vel_list)):
+        const[k]=vel_list[i]
+        const[k+1]=vel_list[i]/div
+        sol=odeint(evolveFF2_analytical,y0,timevec, args=(const,))
         rateV[i]=0.5*const[2]*sol[-1,1]/sol[-1,0]
     return rateV
 
 
-def pmirate3node(c):
-        return 1/2*(-c[1]-np.sqrt(c[3]*(c[3]+2*c[4]))+np.sqrt(c[1]*c[1]+c[3]*c[3]+2*c[3]*c[4]+2*np.sqrt(c[1]*c[3]*(c[1]*c[3]+2*(c[1]+c[2])*c[4]))))
-
 def gaussrate3node(w,c):
+    '''
+    Integrand gaussian mutual information rate of the three node network in steady state analytically. Needs to be integrated numerically
+    '''
     c1,c2,c3,c4,c5,c6=c
     return (-1/(4*np.pi)*np.log(1-c2*c3*c4*c5/(c2*c4*(c3*c5+c2*(c4+c5))+(c2**2+c4*(c4+c5))*w**2+w**4)))
 
 def pmirate2node(c):
+    '''
+    Calculates the path mutual information rate of the two node network in steady state analytically.
+
+    '''
     return -c[1]/2+1/2*np.sqrt(c[1]*(c[1]+2*c[2]))
 
 def gaussrate2node(c):
+    '''
+    Calculates the gaussian mutual information rate of the two node network analytically.
+    '''
     return -c[1]/2+1/2*np.sqrt(c[1]*(c[1]+c[2]))
 
 

@@ -6,56 +6,42 @@ Created on Tue May 10 08:56:36 2022
 @author: moor
 """
 
-import sys
-sys.path.append("/Users/moor/Documents/PhD/MIPaper")
 import numpy as np
-from functools import partial
-import random as rnd
-from scipy.integrate import odeint
-import scipy.integrate as intgr
-from functions import FF2Node,matrixB,dN,variance
-from Trajectories import trajectoryAB,parallelAB #parallelAB still is to be defined 
-from exactsolutions import dglAB
-from multiprocessing import Pool
-from analyticalfunctions import FF2_analytical,reacvel_2nodes,pmirate2node,gaussrate2node
-import matplotlib
+from functools import partial #for multiprocessing
+from multiprocessing import Pool #for multiprocessing
+import random as rnd #for SSA 
+from scipy.integrate import odeint #for numerical integrations
+import scipy.integrate as intgr 
+import matplotlib #for plotting
 import matplotlib.pyplot as plt
 
-const={"c1": 1,"c2":0.1,"c3":0.1,"c4":0.1}
+from Trajectories import computeTrajectoryAB,parallelisationAB #algorithm to calculte the path mutual information of the two node network + its parallelisation
+from functions import FF2Node,updateMatrixB,dN,variance #functions to support the algorithm
+from exactsolutions import evolveQuasiExactAB #set of differential equations for the exact integration of the filtering equation for the three node network
+
+
+const={"c1": 1,"c2":0.1,"c3":0.1,"c4":0.1} #reaction constants
 const=list(const.values())
 a0=10
 b0=10
-iniconds=[a0,b0]
-dtmax=1e-4
-timevec=np.linspace(0,200,150)
-laenge=int(len(timevec)+1)
-core=24
-MC=1
-dim=150
-#%%
-if __name__ == '__main__': #Calculation of the path mutual information, its rate and all the species-trajectories
-    exact=True
+iniconds=[a0,b0] #initial conditions of the species
+timevec=np.linspace(0,200,150) #integration time 
+laenge=int(len(timevec)+1) #length of the final trajectories
+core=1 #cores of the computer for multiprocessing
+MC=1 #sample size for Monte Carlo average; lowering the sample size will speed up the calculation; for the exact calculation it is recommended to take a low sample size
+dim=150 #dimension of the lattice for numerically integrating the filtering equation
+#%% Calculation of the path mutual information, its rate and all the species-trajectories
+if __name__ == '__main__': 
+    exact=True #set False for integration of only the moment closure system. If exact=True, it is recommended to use lower sample size
     if exact==True:
-        a_g,b_g,mean,secmom,mi,misq,rate,a1b,a2b,miclo,miclosq,rateclo=parallelAB(core,MC,exact,iniconds,const,dim,laenge,timevec)
+        a_g,b_g,mean,secmom,mi,misq,rate,a1b,a2b,miclo,miclosq,rateclo=parallelisationAB(core,MC,exact,iniconds,const,dim,laenge,timevec)
     else:
-        a_g,b_g,a1b,a2b,miclo,miclosq,rateclo=parallelAB(core,MC,exact,iniconds,const,dim,laenge,timevec)
+        a_g,b_g,a1b,a2b,miclo,miclosq,rateclo=parallelisationAB(core,MC,exact,iniconds,const,dim,laenge,timevec)
         
-#%%
-if __name__ == '__main__': #Further calculations and analytical calculations 
-    mivar=variance(miclo,miclosq)
-    ratevar=variance(rateclo,miclosq[:-1]/(timevec*timevec))      
+    mivar=variance(miclo,miclosq) #variance of the path mutual information 
+    ratevar=variance(rateclo,miclosq[:-1]/(timevec*timevec)) #variance of the path mutual information rate   
 
-    y0=[iniconds[0],0,0]
-    #c_prod_list=np.linspace(0,100,1000)
-    #ratevA=reacvel_2nodes(c_prod_list,const.copy(),iniconds,timevec,'A') #for calculating the reaction velocity 
-    #ratevB=reacvel_2nodes(c_prod_list,const.copy(),iniconds,timevec,'B')
-        
-    analyticalmi=odeint(FF2_analytical,y0,timevec, args=(const,))[:,-1]
-    
-    pmi2rate=pmirate2node(const)
-    gauss2rate=gaussrate2node(const)
-
-#%%
+#%% Reproducing the plot in the appendix, works only for exact==True
 if __name__ == '__main__':
     varmomclos=variance(a1b,a2b)
     varexact=variance(mean,secmom)
@@ -68,16 +54,21 @@ if __name__ == '__main__':
     plt.figure(1,figsize=(10,10))
     plt.step(timevec,a_g,color='cornflowerblue',linewidth=lwd)
     plt.plot(timevec,a1b,color='magenta',linewidth=lwd)
-    plt.plot(timevec,mean,color='seagreen',linewidth=lwd)
+    if exact:
+        plt.plot(timevec,mean,color='seagreen',linewidth=lwd)
     plt.plot(timevec,a1b+varmomclos,'--',color='magenta',linewidth=lwd)
     plt.plot(timevec,a1b-varmomclos,'--',color='magenta',linewidth=lwd)
-    plt.plot(timevec,mean+varexact,'--',color='seagreen',linewidth=lwd)
-    plt.plot(timevec,mean-varexact,'--',color='seagreen',linewidth=lwd)
+    if exact:
+        plt.plot(timevec,mean+varexact,'--',color='seagreen',linewidth=lwd)
+        plt.plot(timevec,mean-varexact,'--',color='seagreen',linewidth=lwd)
     plt.xlabel('Time t')
     plt.ylabel('Copy Number of A')
-    plt.legend(('SSA','Exp. via Mom. Clos.', 'Exact Exp.'),loc='best')
+    if exact:
+        plt.legend(('SSA','Exp. via Mom. Clos.', 'Exact Exp.'),loc='best')
+    else:
+        plt.legend(('SSA','Exp. via Mom. Clos.'),loc='best')
     plt.axis([0,70,0,23])
     plt.grid(linewidth=2)
     plt.tight_layout()
-    # plt.savefig('Example.pdf',dpi=250)
+    plt.savefig('Comparing_momentclosure_with_quasiexact.pdf',dpi=250)
     plt.show()

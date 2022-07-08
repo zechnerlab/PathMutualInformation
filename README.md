@@ -14,7 +14,8 @@ The provided code was written using Python v3.8.5 and uses the following librari
 - [Matplotlib v3.3.2](https://matplotlib.org/)
 - [Scipy v1.5.2](https://scipy.org)
 
+
 For installing Python and the required packages, one can use [Anaconda](https://www.anaconda.com/products/distribution#windows). Anaconda is a general package manager that contains all the for this code required packages. Instructions to install Python can be found [here](https://jupyter.readthedocs.io/en/latest/install.html). 
 
 ## Reproducing the figures of the paper 
-The python scripts `FF3.py`, `FF2.py` and `BS.py` contain the source code to calculate the path mutual information for our case studies. The scripts are commented in order to reproduce the figures in the main text and appendix and provide an example of how to calculate the path mutual information with the presented methods. By using the code, one can choose between a solution that also provides the exactly integrated filter equation by setting `exact=True` or by a faster evaluation of the path mutual information by setting `exact=False` (default), which will lead to the figures presented in the main paper. 
+The python scripts `FF3.py`, `FF2.py` and `BS.py` contain the source code to calculate the path mutual information for our case studies. The scripts are commented in order to reproduce the figures in the main text and appendix and provide an example of how to calculate the path mutual information with the presented methods. By using the code, one can choose between a solution that also provides the exactly integrated filter equation by setting `exact=True` or by a faster evaluation of the path mutual information by setting `exact=False` (default), which will lead to the figures presented in the main paper. Before using the code it is recommended to adapt the variables `MC` and `core` to the desired preciseness of the Monte Carlo average and the core of the used computer to make calculations more efficient.
