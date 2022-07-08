@@ -12,7 +12,7 @@ import random as rnd
 from scipy.integrate import odeint
 from multiprocessing import Pool
 
-def BS(y,t,g,p,constants,K,eps,mu): 
+def evolveBS(y,t,g,p,constants,K,eps,mu): 
     '''
     set of differential equations for the continous parts of the moment equations and path mutual information of the bistable switch system.
     '''
@@ -97,7 +97,7 @@ def computeTrajectoryBS(n,iniconds,const,params,laenge,destime):
             while destime[h]<(t+time):  
                 y0=[sol[-1,0],sol[-1,1],sol[-1,2],sol[-1,3],sol[-1,4],sol[-1,5],sol[-1,6],sol[-1,7],sol[-1,8],sol[-1,9],sol[-1,10],sol[-1,11],sol[-1,12],sol[-1,13]]
                 timevec=np.linspace(tau,destime[h],5) #integration interval
-                sol=odeint(BS,y0,timevec, args=(g,p,const,K,eps,mu),rtol=1e-6) #integration from the actual time point until the next desired time point
+                sol=odeint(evolveBS,y0,timevec, args=(g,p,const,K,eps,mu),rtol=1e-6) #integration from the actual time point until the next desired time point
                 tau=destime[h] #update the actual time point from which the next integration starts
                 r1gp[h]=sol[-1,0] #update of the species
                 r2gp[h]=sol[-1,1]
@@ -124,7 +124,7 @@ def computeTrajectoryBS(n,iniconds,const,params,laenge,destime):
             y0=[sol[-1,0],sol[-1,1],sol[-1,2],sol[-1,3],sol[-1,4],sol[-1,5],sol[-1,6],sol[-1,7],sol[-1,8],sol[-1,9],sol[-1,10],sol[-1,11],sol[-1,12],sol[-1,13]]
 
             timevec=np.linspace(tau,t+time,5)
-            sol=odeint(BS,y0,timevec, args=(g,p,const,K,eps,mu),rtol=1e-6)  #integration from the actual time point until the next desired time point 
+            sol=odeint(evolveBS,y0,timevec, args=(g,p,const,K,eps,mu),rtol=1e-6)  #integration from the actual time point until the next desired time point 
             tau=t+time #update the actual time point from which the next integration starts
         t=t+time #update of the total time 
         if index==5: #evaluation of the stochastic integral for the jumps (reaction 5)
