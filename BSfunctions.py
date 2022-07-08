@@ -12,6 +12,8 @@ import random as rnd
 from scipy.integrate import odeint
 from multiprocessing import Pool
 
+#The letters g,r,p denote the species A,B,C
+
 def evolveBS(y,t,g,p,constants,K,eps,mu): 
     '''
     set of differential equations for the continous parts of the moment equations and path mutual information of the bistable switch system.
@@ -181,7 +183,7 @@ def computeTrajectoryBS(n,iniconds,const,params,laenge,destime):
         g+=updates[index-1][0] #update of the SSA trajectories
         r+=updates[index-1][1]
         p+=updates[index-1][2]
-    return gt,rt,pt,r1gp,r2gp,g1p,g2p,r1p,r2p,grp,r1g,r2g,p1g,p2g,rpg,mig,mip,mi
+    return gt[:-1],rt[:-1],pt[:-1],r1gp[:-1],r2gp[:-1],g1p[:-1],g2p[:-1],r1p[:-1],r2p[:-1],grp[:-1],r1g[:-1],r2g[:-1],p1g[:-1],p2g[:-1],rpg[:-1],mig[:-1],mip[:-1],mi[:-1]
 
 def parallelisationBS(core,MC,iniconds,const,params,laenge,timevec):
     '''

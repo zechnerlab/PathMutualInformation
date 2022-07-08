@@ -8,7 +8,7 @@ Created on Mon Apr 25 11:37:01 2022
 
 '''
 This script is written to execute the pipeline for calculating the path mutual information for the three node feed forward network presented in the main text.
-It will generate the plots 1b+c and the whole figure 2.  
+It will generate the figures 1b+c and figure 2b-c in the main text and figure 1 in the appendix.  
 '''
 
 

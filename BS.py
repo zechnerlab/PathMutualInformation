@@ -5,8 +5,12 @@ Created on Tue May 10 10:22:30 2022
 
 @author: moor
 """
-import sys
-sys.path.append("/Users/moor/Documents/PhD/MIPaper")
+
+'''
+This script is written to execute the pipeline for calculating the path mutual information for the three node feed forward network presented in the main text.
+It will generate the plots the figure 3b-d in the main text and figures 3 and 4 of the appendix.  
+'''
+
 import numpy as np
 from functools import partial #for multiprocessing
 from multiprocessing import Pool #for multiprocessing
@@ -15,7 +19,7 @@ from scipy.integrate import odeint #for numerical integrations
 import matplotlib #for plotting
 import matplotlib.pyplot as plt
 
-from BSfunctions import computeTrajectoryBS,parallelisationBS,BS,MonteCarlo,bistableswitch #imports the main algorithm, its parallelisation and functions needed within the algorithm
+from BSfunctions import computeTrajectoryBS,parallelisationBS,evolveBS,MonteCarlo,bistableswitch #imports the main algorithm, its parallelisation and functions needed within the algorithm
 
 MC=10000 #sample size for Monte Carlo average
 
