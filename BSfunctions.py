@@ -157,7 +157,7 @@ def computeTrajectoryBS(n,iniconds,const,params,laenge,destime):
 
                 
         if index==1: #evaluation of the stochastic integral for the jumps (reaction 1)
-            lambdagp=(mu*p*p*p/float(K*K*K+p*p*p)+eps)
+            lambdagp=(mu*p*p*p/float(K*K*K+p*p*p)+eps) 
             lambdag=(mu*sol[-1,9]*sol[-1,9]*sol[-1,9]/(K*K*K+sol[-1,9]*sol[-1,9]*sol[-1,9])+eps)
             r1g[h]=sol[-1,7]+(3*mu*sol[-1,9]*sol[-1,9]/(K*K*K+sol[-1,9]*sol[-1,9]*sol[-1,9])-3*mu*sol[-1,9]*sol[-1,9]*sol[-1,9]*sol[-1,9]*sol[-1,9]/((K*K*K+sol[-1,9]*sol[-1,9]*sol[-1,9])*(K*K*K+sol[-1,9]*sol[-1,9]*sol[-1,9])))*(sol[-1,11]-sol[-1,9]*sol[-1,7])/(mu*sol[-1,9]*sol[-1,9]*sol[-1,9]/(K*K*K+sol[-1,9]*sol[-1,9]*sol[-1,9])+eps)
             r2g[h]=sol[-1,8]+(3*mu*sol[-1,9]*sol[-1,9]/(K*K*K+sol[-1,9]*sol[-1,9]*sol[-1,9])-3*mu*sol[-1,9]*sol[-1,9]*sol[-1,9]*sol[-1,9]*sol[-1,9]/((K*K*K+sol[-1,9]*sol[-1,9]*sol[-1,9])*(K*K*K+sol[-1,9]*sol[-1,9]*sol[-1,9])))*(2*sol[-1,8]*sol[-1,11]/sol[-1,7]-2*sol[-1,8]*sol[-1,9])/(mu*sol[-1,9]*sol[-1,9]*sol[-1,9]/(K*K*K+sol[-1,9]*sol[-1,9]*sol[-1,9])+eps)

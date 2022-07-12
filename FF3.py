@@ -11,7 +11,6 @@ This script is written to execute the pipeline for calculating the path mutual i
 It will generate the figures 1b+c and figure 2b-c in the main text and figure 1 in the appendix.  
 '''
 
-
 import numpy as np
 from functools import partial #for multiprocessing
 from multiprocessing import Pool #for multiprocessing
@@ -278,6 +277,7 @@ if __name__ == '__main__':
     plt.savefig('vA.pdf', dpi=250)
     plt.show()       
 #%% Calculating the path mutual information of the two node network, comparing it to the gaussian mutual information and generating figure 2d
+if __name__ == '__main__': 
     gaussrate,numexrate,varexact=[np.zeros(len(vel_list)) for i in range(3)]
     gaussrate2=gaussrate2node(const[:-2])
     
@@ -313,7 +313,7 @@ if __name__ == '__main__':
     plt.xlabel(r"Relative Reaction Velocity $v_C$")
     plt.ylabel("Mutual Information Rate i")
     plt.tight_layout()
-    plt.savefig('CompbtwModels.pdf', dpi=250)
+    # plt.savefig('CompbtwModels.pdf', dpi=250)
     plt.show()
             
             
