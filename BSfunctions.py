@@ -226,23 +226,23 @@ def parallelisationBS(core,MC,iniconds,const,params,laenge,timevec):
         results = pool.map(partial(computeTrajectoryBS,iniconds=iniconds,const=const,params=params,laenge=laenge,destime=timevec), [k for k in range(MC)])
         for r in results:
             gt_temp,rt_temp,pt_temp,r1gp_temp,r2gp_temp,g1p_temp,g2p_temp,r1p_temp,r2p_temp,grp_temp,r1g_temp,r2g_temp,p1g_temp,p2g_temp,rpg_temp,mig_temp,mip_temp,mi_temp = r
-            gtdata.append(gt_temp[:-1]) #collecting all the single trajectories 
-            rtdata.append(rt_temp[:-1])
-            ptdata.append(pt_temp[:-1])
-            r1gpdata.append(r1gp_temp[:-1])
-            r2gpdata.append(r2gp_temp[:-1])
-            r1pdata.append(r1p_temp[:-1])
-            r1gdata.append(r1g_temp[:-1])
-            r2gdata.append(r2g_temp[:-1])
-            r2pdata.append(r2p_temp[:-1])
-            g1pdata.append(g1p_temp[:-1])
-            g2pdata.append(g2p_temp[:-1])
-            grpdata.append(grp_temp[:-1])
-            p1gdata.append(p1g_temp[:-1])
-            p2gdata.append(p2g_temp[:-1])
-            migdata.append(mig_temp[:-1])
-            mipdata.append(mip_temp[:-1])
-            midata.append(mi_temp[:-1])
+            gtdata.append(gt_temp) #collecting all the single trajectories 
+            rtdata.append(rt_temp)
+            ptdata.append(pt_temp)
+            r1gpdata.append(r1gp_temp)
+            r2gpdata.append(r2gp_temp)
+            r1pdata.append(r1p_temp)
+            r1gdata.append(r1g_temp)
+            r2gdata.append(r2g_temp)
+            r2pdata.append(r2p_temp)
+            g1pdata.append(g1p_temp)
+            g2pdata.append(g2p_temp)
+            grpdata.append(grp_temp)
+            p1gdata.append(p1g_temp)
+            p2gdata.append(p2g_temp)
+            migdata.append(mig_temp)
+            mipdata.append(mip_temp)
+            midata.append(mi_temp)
         return gtdata,rtdata,ptdata,r1gpdata,r2gpdata,g1pdata,g2pdata,r1pdata,r2pdata,grpdata,r1gdata,r2gdata,p1gdata,p2gdata,migdata,mipdata,midata
     
 def MonteCarlo(data,MC):

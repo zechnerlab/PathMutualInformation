@@ -188,9 +188,9 @@ def computeTrajectoryAC(n,exact,iniconds,const,dim,laenge,destime):
         j=0
         h=0
         sol=np.array([[b0, b0*b0, a0,b0,a0*a0,b0*b0,a0*b0,0]])
-        propensities=[const[0], const[1]*a, const[2]*a, const[3]*b, const[4]*b, const[5]*c]
         
         while (t<t_max):
+            propensities=[const[0], const[1]*a, const[2]*a, const[3]*b, const[4]*b, const[5]*c]
             reacsum=sum(propensities)
             time=-np.log(rnd.uniform(0.0,1.0))/reacsum     
             RV=rnd.uniform(0.0,1.0)*reacsum      
@@ -199,7 +199,6 @@ def computeTrajectoryAC(n,exact,iniconds,const,dim,laenge,destime):
             while value<RV:
                 index+=1
                 value+=propensities[index-1]  
-            propensities=[const[0], const[1]*a, const[2]*a, const[3]*b, const[4]*b, const[5]*c]
             
             if h<len(destime):
                 while destime[h]<(t+time): 
@@ -304,8 +303,8 @@ def computeTrajectoryAB(n,exact,iniconds,const,dim,laenge,destime):
         j=0
         h=0
         sol=np.array([[a0, a0*a0, 0]])
-        propensities=[const[0], const[1]*a, const[2]*a, const[3]*b]
         while (t<t_max):
+            propensities=[const[0], const[1]*a, const[2]*a, const[3]*b]
             reacsum=sum(propensities)
             time=-np.log(rnd.uniform(0.0,1.0))/reacsum     
             RV=rnd.uniform(0.0,1.0)*reacsum      
@@ -314,7 +313,7 @@ def computeTrajectoryAB(n,exact,iniconds,const,dim,laenge,destime):
             while value<RV:
                 index+=1
                 value+=propensities[index-1]  
-            propensities=[const[0], const[1]*a, const[2]*a, const[3]*b]
+                
             if h<len(destime):
                 while destime[h]<(t+time):
                     y0=[sol[-1,0],sol[-1,1],sol[-1,2]]

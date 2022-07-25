@@ -28,7 +28,7 @@ from analyticalfunctions import evolveFF3_analytical,calculateReacvel_3nodes,gau
 from Trajectories import computeTrajectoryAB,parallelisationAB #algorithm to calculate the path mutual information of the two node network + its parallelisation
 from functions import evolveFF2Node,updateMatrixB,dN,variance  #functions to support the algorithm
 from exactsolutions import evolveQuasiExactAB #set of differential equations for the exact integration of the filtering equation for the two node network
-from analyticalfunctions import gaussrate2node #analytical function calculating the gaussian rate of the two node network
+from analyticalfunctions import gaussrate2node,evolveFF2_analytical #analytical functions calculating the gaussian and analytical rates of the two node network
 
 
 
@@ -205,7 +205,7 @@ if __name__ == '__main__':
     y0=[iniconds[0],iniconds[1],0,0,0,0,0,0,0,0,0,0,0]
     sol=odeint(evolveFF3_analytical,y0,timevec, args=(const,)) #analytical calculation of the path mutual information corresponding to the numerical one 
     analyticalmi=sol[:,-1]
-    analyticalarate=0.5*const[4]*(sol[:,5]-sol[:,11])/sol[:,1]
+    analyticalrate=0.5*const[4]*(sol[:,5]-sol[:,11])/sol[:,1]
     
     const={"c1": 1,"c2":0.1,"c3":0.1,"c4":0.1,"c5":1,"c6":0.1}
     const=list(const.values())
@@ -278,15 +278,18 @@ if __name__ == '__main__':
     plt.show()       
 #%% Calculating the path mutual information of the two node network, comparing it to the gaussian mutual information and generating figure 2d
 if __name__ == '__main__': 
-    gaussrate,numexrate,varexact=[np.zeros(len(vel_list)) for i in range(3)]
+    gaussrate,numexrate,varexact,analyticalrate_2node=[np.zeros(len(vel_list)) for i in range(4)]
     gaussrate2=gaussrate2node(const[:-2])
     
     const={"c1": 1,"c2":0.1,"c3":0.1,"c4":0.1}
     const=list(const.values())
+    y0=[a0,0,0]
+    sol=odeint(evolveFF2_analytical,y0,timevec, args=(const,))
+    analytical_2node_rate=0.5*const[2]*sol[-1,1]/sol[-1,0]
     a0=10
     b0=10
     iniconds=[a0,b0]
-    timevec=np.linspace(0,400,150)
+    timevec=np.linspace(0,300,150)
     dim=150
     MC=1000 #our calculations have been performed with a sample size of n=10000, but a smaller one should be sufficient as well
     exact=True #we compare with the quasi-exact path mutual information of the two node network
@@ -297,16 +300,18 @@ if __name__ == '__main__':
     
     for i in range(len(vel_list)):
         gaussrate[i]=gaussrate2 #gaussian rate of the two state network
+        analyticalrate_2node[i]=analytical_2node_rate
         numexrate[i]=rate #quasi-exact rate of the two state network; the values we obtained were rate[-2]=0.035453443149561 and secmom[-2]=2.246595566810135836e+02
         varexact[i]=np.sqrt(secmom[-2]/(timevec[-2]*timevec[-2])-rate[-2]*rate[-2])/np.sqrt(MC)*2.5 #variance of the quasi exact rate scaled with the sample size*2.5
     plt.figure(1,figsize=(10,10))
     plt.plot(vel_list,ratevC,'b',linewidth=lwd)
     plt.plot(vel_list,f3rateC,'r',linewidth=lwd)
     plt.plot(vel_list,numexrate,'--b',linewidth=lwd)
+    plt.plot(vel_list, analyticalrate_2node, '--g', linewidth=lwd)
     plt.plot(vel_list,gaussrate,'--r',linewidth=lwd)
-    plt.errorbar(velpoints,rateC,xerr=None,yerr=varC,fmt='bo',elinewidth=1.2,capsize=4,markersize=7)
     # plt.errorbar(velpoints[:5],rateC_exact,xerr=None,yerr=varC_exact,fmt='go',elinewidth=1.2,capsize=4) #for quasi-exact points
-    plt.legend(('Analyt. PMI', 'GMI - 3 nodes', 'Num. PMI - 2 nodes', 'GMI - 2 nodes','Clos. PMI - 3 nodes','Q.-E. PMI - 3 nodes'),loc='best')
+    plt.legend(('Analytical - 3 nodes', 'Gaussian - 3 nodes', 'Numerical - 2 nodes', 'Analytical - 2 nodes', 'Gaussian - 2 nodes'),loc='best')
+    plt.errorbar(velpoints,rateC,xerr=None,yerr=varC,fmt='bo',elinewidth=1.2,capsize=4,markersize=7)
     plt.fill_between(vel_list,numexrate-varexact,numexrate+varexact,color='blue',alpha=0.2)
     plt.grid(linewidth=2)
     plt.axis([0,25,0,0.05])
