@@ -10,8 +10,7 @@ Created on Tue May 10 10:22:30 2022
 This script is written to execute the pipeline for calculating the path mutual information for the three node feed forward network presented in the main text.
 It will generate the plots the figure 3b-d in the main text and figures 3 and 4 of the appendix.  
 '''
-import sys
-sys.path.append("/Users/moor/Documents/PhD/MIPaper")
+
 import numpy as np
 from functools import partial #for multiprocessing
 from multiprocessing import Pool #for multiprocessing
@@ -69,7 +68,13 @@ if __name__ == '__main__':
     # rate_A=np.loadtxt(directory+'rate_a.out')
     # var_A=np.loadtxt(directory+'var_rate_a.out')
         
-        
+    lwd=3
+    v=0 #counting variable of the trajectory of the sample to represent
+    matplotlib.rc('font',size=38)
+    plt.rcParams['axes.linewidth'] = 2
+    plt.rcParams['ps.useafm']=True
+    matplotlib.rc('font',**{'family':'serif','serif':['Times New Roman']})
+    plt.rcParams['pdf.fonttype'] = 42  
     plt.figure(1,figsize=(13,10)) #Total mutual information rate 
     plt.errorbar(mulist,rate,xerr=None,yerr=var,color='blue',fmt='o',elinewidth=2.5,capsize=7,markersize=9)
     plt.fill_between(mulist,rate-var,rate+var,color='blue',alpha=0.1)
@@ -131,7 +136,7 @@ if __name__ == '__main__':
         plt.ticklabel_format(style='sci',axis='y',scilimits=(0,0))
         plt.grid(linewidth=2)
         plt.tight_layout()
-        plt.savefig('hist-mu_%d.pdf'%mu_list[i],dpi=250)
+        # plt.savefig('hist-mu_%d.pdf'%mu_list[i],dpi=250)
         plt.show()
 #%% generating data and plotting of the bifurcation plot in the appendix
 if __name__ == '__main__':
