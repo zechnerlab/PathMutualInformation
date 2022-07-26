@@ -136,7 +136,7 @@ if __name__ == '__main__':
         plt.ticklabel_format(style='sci',axis='y',scilimits=(0,0))
         plt.grid(linewidth=2)
         plt.tight_layout()
-        # plt.savefig('hist-mu_%d.pdf'%mu_list[i],dpi=250)
+        plt.savefig('hist-mu_%d.pdf'%mu_list[i],dpi=250)
         plt.show()
 #%% generating data and plotting of the bifurcation plot in the appendix
 if __name__ == '__main__':
