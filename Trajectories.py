@@ -503,8 +503,8 @@ def parallelisationAC(core,MC,exact,iniconds,const,dim,laenge,timevec):
             mi_closured_squared=mi_closured_squared/MC
             meanac=meanac/MC
             meanc=meanc/MC
-            rate=mi[:-1]/timevec #this might give an error because timevec[0]=0
-            rate_closured=mi_closured[:-1]/timevec #this might give an error because timevec[0]=0
+            rate=mi[:-1]/timevec #this might give a warning because timevec[0]=0
+            rate_closured=mi_closured[:-1]/timevec #this might give a warning because timevec[0]=0
             return a_g[:-1],b_g[:-1],meanac[:-1],meanc[:-1],mi[:-1],misquared[:-1],rate,miexdata[:-1],b1ac[:-1],b1c[:-1],mi_closured[:-1],mi_closured_squared[:-1],rate_closured,miclodata
         else: #Monte Carlo average for the system with moment closure 
             for r in results:
@@ -522,7 +522,7 @@ def parallelisationAC(core,MC,exact,iniconds,const,dim,laenge,timevec):
             b1c=b1c/MC
             mi_closured=mi_closured/MC
             mi_closured_squared=mi_closured_squared/MC
-            rate_closured=mi_closured[:-1]/timevec #this might give an error because timevec[0]=0
+            rate_closured=mi_closured[:-1]/timevec #this might give a warning because timevec[0]=0
             return a_g[:-1],b_g[:-1],b1ac[:-1],b1c[:-1],mi_closured[:-1],mi_closured_squared[:-1],rate_closured,miclodata
         
 def parallelisationAB(core,MC,exact,iniconds,const,dim,laenge,timevec):
