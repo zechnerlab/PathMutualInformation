@@ -119,6 +119,9 @@ def computeTrajectoryBS(n,iniconds,const,params,laenge,destime):
                 gt[h]=g
                 rt[h]=r
                 pt[h]=p
+                if h==250:
+                    sol[-1,12]=0
+                    sol[-1,13]=0
                 h=h+1
                 j=j+1
                 if h>=len(destime)-1:

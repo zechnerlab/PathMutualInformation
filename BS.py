@@ -24,7 +24,7 @@ from BSfunctions import computeTrajectoryBS,parallelisationBS,evolveBS,MonteCarl
 MC=500 #sample size for Monte Carlo average (smaller sample size than used for the paper)
 
 c0=100 #20
-mu=0.1#feedback strength 
+mu=0.7#feedback strength 
 K=30 #Michaelis constant
 eps=0.03    #offset
 const={'k1': c0*c0*c0/(K*K*K+c0*c0*c0)*mu+eps, 'k2': 0.1, 'k3': 1, 'k4': 0.1, 'k5': 0.1, 'k6': 0.1} #reaction constants 
@@ -35,34 +35,34 @@ b0=100 #20
 
 iniconds=[a0,b0,c0] #initial conditions
 params=[K,eps,mu] #collects the parameters for the feedback 
-core=1 #cores of the computer for multiprocessing
+core=1 #cores of the computer for multiprocessing; to be adapted 
 
 #%% Calculating and plotting the mutual information rate and the entropy rates
 if __name__ == '__main__':
     directory='datafiles/BistableSwitch/' 
-    timevec=np.linspace(0,1000,300) #integration time
-    mulist=np.loadtxt(directory+'mulist.out') #list containing the values of mu to which we determine the rate
+    timevec=np.linspace(0,10000,300) #integration time
+    mulist=[0.05,0.1,0.2,0.3,0.4,0.5,0.55,0.6,0.7,0.8,0.9,1,1.1,1.2,1.3,1.4,1.5] #list containing the values of mu to which we determine the rate
     rate,rate_A,rate_C,var,var_A,var_C=[np.zeros(len(mulist)) for i in range(6)]
     
     for i in range(len(mulist)):
         mu=mulist[i]
+        params=[K,eps,mu]
         atdata,btdata,ctdata,b1acdata,b2acdata,a1cdata,a2cdata,b1cdata,b2cdata,abcdata,b1adata,b2adata,c1adata,c2adata,miadata,micdata,midata=parallelisationBS(core,MC,iniconds,const,params,int(len(timevec)+1),timevec)
         mia,varmia=MonteCarlo(miadata,MC)
         mic,varmic=MonteCarlo(micdata,MC)
         mi,varmi=MonteCarlo(midata,MC) 
-        rate[i]=mi[-2]/timevec[-2]
-        rate_A[i]=mia[-2]/timevec[-2]
-        rate_C[i]=mic[-2]/timevec[-2]
-        var[i]=varmi[-2]/(timevec[-2]*timevec[-2]*np.sqrt(MC))*2.5 #variances are scaled with the square root of the sample size times 2.5 
-        var_A[i]=varmia[-2]/(timevec[-2]*timevec[-2]*np.sqrt(MC))*2.5
-        var_C[i]=varmic[-2]/(timevec[-2]*timevec[-2]*np.sqrt(MC))*2.5
+        rate[i]=mi[-2]/(timevec[-2]-timevec[250])
+        rate_A[i]=mia[-2]/(timevec[-2]-timevec[250])
+        rate_C[i]=mic[-2]/(timevec[-2]-timevec[250])
+        var[i]=varmi[-2]/((timevec[-2]-timevec[250])*np.sqrt(MC))*2.5 #variances are scaled with the square root of the sample size times 2.5 
+        var_A[i]=varmia[-2]/((timevec[-2]-timevec[250])*np.sqrt(MC))*2.5 #we let the system equilibrate to steady state and delete the transient at timevec[250]
+        var_C[i]=varmic[-2]/((timevec[-2]-timevec[250])*np.sqrt(MC))*2.5
     
     ##Alternatively to the calculation before, this will open the data points generated for the paper; using this section will overwrite the arrays generated before
     ##Note that for obtaining this data, the transient for reaching the steady state has been manually cutted out which does not happen here 
     # directory='/datafiles/BistableSwitch/' 
-    # mulist=np.loadtxt(directory+'mulist.out')
     # rate=np.loadtxt(directory+'totalrate.out')
-    # var=np.loadtxt(directory+'var_rate.out') #the variances have been calculated via the second moment and scaling with the square root of the sample size (10000) times 2.5 
+    # var=np.loadtxt(directory+'var_rate.out') #the variances have been calculated via the second moment and scaling with the square root of the sample size (5000) times 2.5 
     # rate_C=np.loadtxt(directory+'rate_c.out')
     # var_C=np.loadtxt(directory+'var_rate_c.out')
     # rate_A=np.loadtxt(directory+'rate_a.out')
@@ -112,11 +112,11 @@ if __name__ == '__main__':
     plt.show()
 #%%  Creating data and plotting the histograms for representation of the switching 
 if __name__ == '__main__':
-    mu_list=[0.01,0.7,1]
-    timevec=np.linspace(0,300,200)
+    mu_list=[0.05,0.7,1]
+    timevec=np.linspace(0,10000,300)
     for i in range(len(mu_list)):
         params=[K,eps,mu_list[i]]
-        if mu_list[i]==0.01:
+        if mu_list[i]==0.05:
             iniconds=[1,1,1]
             xmax=30
         if mu_list[i]==0.7:
@@ -129,7 +129,7 @@ if __name__ == '__main__':
         const=list(const.values())
         atdata,btdata,ctdata,b1acdata,b2acdata,a1cdata,a2cdata,b1cdata,b2cdata,abcdata,b1adata,b2adata,c1adata,c2adata,miadata,micdata,midata=parallelisationBS(core,MC,iniconds,const,params,int(len(timevec)+1),timevec)
         plt.figure(1,figsize=(10,10))
-        plt.hist(np.transpose(ctdata)[-2],bins=31,facecolor='b',alpha=0.75,density='True',align='left')
+        plt.hist(np.transpose(ctdata)[-2],bins=14,facecolor='b',alpha=0.75,density='True',align='left')
         plt.xlabel('Copy Number of C')
         plt.ylabel('Relative Frequency')
         plt.xlim(-0.5,xmax)
