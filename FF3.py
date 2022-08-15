@@ -281,13 +281,13 @@ if __name__ == '__main__':
     gaussrate,numexrate,varexact,analyticalrate_2node=[np.zeros(len(vel_list)) for i in range(4)]
     gaussrate2=gaussrate2node(const[:-2])
     
-    const={"c1": 1,"c2":0.1,"c3":0.1,"c4":0.1}
+    const={"c1": 1,"c2":0.1,"c3":1,"c4":0.1}
     const=list(const.values())
     y0=[a0,0,0]
     sol=odeint(evolveFF2_analytical,y0,timevec, args=(const,))
     analytical_2node_rate=0.5*const[2]*sol[-1,1]/sol[-1,0]
     a0=10
-    b0=10
+    b0=100
     iniconds=[a0,b0]
     timevec=np.linspace(0,300,150)
     dim=150
@@ -301,7 +301,7 @@ if __name__ == '__main__':
     for i in range(len(vel_list)):
         gaussrate[i]=gaussrate2 #gaussian rate of the two state network
         analyticalrate_2node[i]=analytical_2node_rate
-        numexrate[i]=rate #quasi-exact rate of the two state network; the values we obtained were rate[-2]=0.035453443149561 and secmom[-2]=2.246595566810135836e+02
+        numexrate[i]=rate[-2] #quasi-exact rate of the two state network; the values we obtained were rate[-2]=0.035453443149561 and secmom[-2]=2.246595566810135836e+02
         varexact[i]=np.sqrt(secmom[-2]/(timevec[-2]*timevec[-2])-rate[-2]*rate[-2])/np.sqrt(MC)*2.5 #variance of the quasi exact rate scaled with the sample size*2.5
     plt.figure(1,figsize=(10,10))
     plt.plot(vel_list,ratevC,'b',linewidth=lwd)
@@ -314,11 +314,11 @@ if __name__ == '__main__':
     plt.errorbar(velpoints,rateC,xerr=None,yerr=varC,fmt='bo',elinewidth=1.2,capsize=4,markersize=7)
     plt.fill_between(vel_list,numexrate-varexact,numexrate+varexact,color='blue',alpha=0.2)
     plt.grid(linewidth=2)
-    plt.axis([0,25,0,0.05])
+    plt.axis([0,25,0,0.04])
     plt.xlabel(r"Relative Reaction Velocity $v_C$")
     plt.ylabel("Mutual Information Rate i")
     plt.tight_layout()
-    # plt.savefig('CompbtwModels.pdf', dpi=250)
+    plt.savefig('CompbtwModels.pdf', dpi=250)
     plt.show()
             
             
