@@ -310,7 +310,7 @@ if __name__ == '__main__':
     plt.plot(vel_list, analyticalrate_2node, '--g', linewidth=lwd)
     plt.plot(vel_list,gaussrate,'--r',linewidth=lwd)
     # plt.errorbar(velpoints[:5],rateC_exact,xerr=None,yerr=varC_exact,fmt='go',elinewidth=1.2,capsize=4) #for quasi-exact points
-    plt.legend(('Analytical - 3 nodes', 'Gaussian - 3 nodes', 'Numerical - 2 nodes', 'Analytical - 2 nodes', 'Gaussian - 2 nodes'),loc='best')
+    plt.legend(('Analyt. Approx.', 'Gaussian', 'Quasi-Exact (2 nodes)', 'Analyt. Approx. (2 nodes)', 'Gaussian (2 nodes)'),loc='best')
     plt.errorbar(velpoints,rateC,xerr=None,yerr=varC,fmt='bo',elinewidth=1.2,capsize=4,markersize=7)
     plt.fill_between(vel_list,numexrate-varexact,numexrate+varexact,color='blue',alpha=0.2)
     plt.grid(linewidth=2)
