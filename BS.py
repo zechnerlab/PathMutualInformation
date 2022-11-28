@@ -85,7 +85,7 @@ if __name__ == '__main__':
     plt.grid(linewidth=2)
     plt.vlines(0.35,0,0.06,color='grey',linestyle='dashed',alpha=0.8,linewidth=3.5)
     plt.tight_layout()
-    plt.savefig('TotalRate.pdf',dpi=250)
+    plt.savefig('TotalRate.png',dpi=250)
     plt.show()
 
     plt.subplots(figsize=(14,10)) #total rate splitted in its transfer entropies
@@ -108,7 +108,7 @@ if __name__ == '__main__':
     plt.axis([0,1.5,0,0.005])
     plt.ticklabel_format(style='sci',axis='y',scilimits=(0,0))
     plt.tight_layout()
-    plt.savefig('TransferEntropies.pdf',dpi=250)
+    plt.savefig('TransferEntropies.png',dpi=250)
     plt.show()
 #%%  Creating data and plotting the histograms for representation of the switching 
 if __name__ == '__main__':
@@ -136,7 +136,7 @@ if __name__ == '__main__':
         plt.ticklabel_format(style='sci',axis='y',scilimits=(0,0))
         plt.grid(linewidth=2)
         plt.tight_layout()
-        plt.savefig('hist-mu_%d.pdf'%mu_list[i],dpi=250)
+        plt.savefig('hist-mu_%d.png'%mu_list[i],dpi=250)
         plt.show()
 #%% generating data and plotting of the bifurcation plot in the appendix
 if __name__ == '__main__':
@@ -167,7 +167,7 @@ if __name__ == '__main__':
     plt.axis([0,20,0,2000])
     plt.grid(linewidth=2)
     plt.tight_layout()
-    plt.savefig('Bifurcation.pdf',dpi=250)
+    plt.savefig('Bifurcation.png',dpi=250)
     plt.show()
     
 

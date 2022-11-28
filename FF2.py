@@ -70,5 +70,5 @@ if __name__ == '__main__':
     plt.axis([0,70,0,23])
     plt.grid(linewidth=2)
     plt.tight_layout()
-    plt.savefig('Comparing_momentclosure_with_quasiexact.pdf',dpi=250)
+    plt.savefig('Comparing_momentclosure_with_quasiexact.png',dpi=250)
     plt.show()

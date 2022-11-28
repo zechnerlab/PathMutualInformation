@@ -40,7 +40,7 @@ def computeTrajectoryAC(n,exact,iniconds,const,dim,laenge,destime):
         trajectory of A, of B, trajectory the expected value of of B conditional on A and C, of B conditional on C, path mutual information via moment closure, pmi via closure squared
         
     '''
-    abvec=np.zeros(dim*dim) #defines the lattice of the copy numbers of specias A and B
+    abvec=np.zeros(dim*dim) #defines the lattice of the copy numbers of species A and B
     for i in range(dim*dim):
         abvec[i]=i%dim
     updates=[[1,0,0],[-1,0,0],[0,1,0],[0,-1,0],[0,0,1],[0,0,-1]] #stoichiometric changes 
@@ -48,7 +48,7 @@ def computeTrajectoryAC(n,exact,iniconds,const,dim,laenge,destime):
     if exact==True:
         Pt_mi=np.zeros((1,dim*dim+dim+1)) #array that will contain the conditional probability distributions and the mutual information, dimension will change
         dydt=np.zeros(dim*dim+dim+1) #for the numerical integration
-        Pt_mi[0][a0]=1
+        Pt_mi[0][b0]=1
         Pt_mi[0][dim+1+dim*a0+b0]=1
         a_g,b_g,c_g,mi,b1_AC,b2_AC,b1_C,b2_C,a1_C,a2_C,ab_C,mi_closured=[np.zeros(laenge) for i in range(12)]
         dPAC1,dPAC2=[np.zeros(dim) for i in range(2)] #for the numerical integration
@@ -69,7 +69,6 @@ def computeTrajectoryAC(n,exact,iniconds,const,dim,laenge,destime):
         updateMatrixAC(dim,a,const,mAC)
         mC=np.zeros((dim*dim,dim*dim)) #integration matrix for Pt_c
         updateMatrixC(dim,const,mC)
-        j=0
         h=0
         sol=np.array([[b0, b0*b0, a0,b0,a0*a0,b0*b0,a0*b0,0]])
         propensities=[const[0], const[1]*a, const[2]*a, const[3]*b, const[4]*b, const[5]*c]
@@ -110,7 +109,6 @@ def computeTrajectoryAC(n,exact,iniconds,const,dim,laenge,destime):
                     a_g[h]=a
                     b_g[h]=b
                     h=h+1
-                    j=j+1
                     if h>=len(destime)-1:
                         break
     
@@ -185,7 +183,6 @@ def computeTrajectoryAC(n,exact,iniconds,const,dim,laenge,destime):
         b_g[0]=b0
         c_g[0]=c0
         t_max=destime[-1]
-        j=0
         h=0
         sol=np.array([[b0, b0*b0, a0,b0,a0*a0,b0*b0,a0*b0,0]])
         
@@ -217,7 +214,6 @@ def computeTrajectoryAC(n,exact,iniconds,const,dim,laenge,destime):
                     a_g[h]=a
                     b_g[h]=b
                     h=h+1
-                    j=j+1
                     if h>=len(destime)-1:
                         break
     
@@ -300,7 +296,6 @@ def computeTrajectoryAB(n,exact,iniconds,const,dim,laenge,destime):
         b_g[0]=b0
         t_max=destime[-1]
         mB=updateMatrixB(dim,const[0],const[1],const[2])
-        j=0
         h=0
         sol=np.array([[a0, a0*a0, 0]])
         while (t<t_max):
@@ -331,7 +326,6 @@ def computeTrajectoryAB(n,exact,iniconds,const,dim,laenge,destime):
                     a_g[h]=a
                     b_g[h]=b
                     h=h+1
-                    j=j+1
                     if h>=len(destime)-1:
                         break
                 y0=[sol[-1,0],sol[-1,1],sol[-1,2]]
@@ -383,7 +377,6 @@ def computeTrajectoryAB(n,exact,iniconds,const,dim,laenge,destime):
         a_g[0]=a0
         b_g[0]=b0
         t_max=destime[-1]
-        j=0
         h=0
         sol=np.array([[a0, a0*a0, 0]])
         propensities=[const[0], const[1]*a, const[2]*a, const[3]*b]
@@ -408,7 +401,6 @@ def computeTrajectoryAB(n,exact,iniconds,const,dim,laenge,destime):
                     a_g[h]=a
                     b_g[h]=b
                     h=h+1
-                    j=j+1
                     if h>=len(destime)-1:
                         break
                 timevec=np.linspace(tau,t+time,5)

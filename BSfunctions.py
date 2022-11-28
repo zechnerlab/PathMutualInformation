@@ -11,6 +11,8 @@ from functools import partial
 import random as rnd
 from scipy.integrate import odeint
 from multiprocessing import Pool
+from functions import updateMatrixAC, updateMatrixC, dN, dN2D, mean2d
+from exactsolutions import evolveQuasiExactBS
 
 #The letters g,r,p denote the species A,B,C
 
@@ -38,7 +40,52 @@ def evolveBS(y,t,g,p,constants,K,eps,mu):
           ] 
     return dydt
 
-def computeTrajectoryBS(n,iniconds,const,params,laenge,destime):
+def updateMatrixA(d,a,const,mA,params):
+    '''
+    integration matrix for the evaluation of the probability distribution conditional on C
+    '''
+    for b in range(d*d):
+        for c in range(d*d):
+            if c==(b+d): 
+                mA[b][c]=(int(b/d)+1)*const[3]
+            if b==(c+d):
+                mA[b][c]=const[2]*a
+            if c==(b+1) and (c % d)!=0:
+                mA[b][c]=(c % d)*const[5]
+            if c==(b-1) and (b % d)!=0:
+                mA[b][c]=int(b/d)*const[4]
+            if b==c:
+                mA[b][c]=-(const[2]*a+const[3]*int(b/d)+const[4]*int(b/d)+const[5]*(c % d)+params[2]*(c % d)*(c % d)*(c % d)/(params[0]*params[0]*params[0]+(c % d)*(c % d)*(c % d))+params[1])
+    return
+
+def dN_hill(P,d,params):
+    '''
+    stochastic jump for two dimensional array
+    '''
+    jump=np.zeros(d)
+    for i in range(1,d):
+        jump[i]=params[2]*i*i*i/(params[0]*params[0]*params[0]+i*i*i)+params[1]-1
+    if np.shape(P)!= (d,d):
+        P=np.reshape(P,(d,d))
+    for a in range(d):
+        for b in range(d):
+            P[a][b]=P[a][b]*jump[b]
+    P=np.matrix.flatten(P)
+    return P
+
+def mean_hill(P,d,params):
+    '''
+    mean of the copy numbers stored in a two dimensional array
+    '''
+    if np.shape(P)!= (d,d):
+        P=np.reshape(P,(d,d))
+    mean=0
+    for b in range(d):
+        for a in range(d):
+            mean+=(params[2]*b*b*b/(params[0]*params[0]*params[0]+b*b*b)+params[1])*P[a][b]
+    return mean
+
+def computeTrajectoryBS(n,iniconds,const,params,laenge,destime,exact=False,dim=50):
     '''
     Integrates path mutual information and the required conditional moments of B given A and C and of A, B given A and B given C over time 
     and determines the SSA-trajectory of the species
@@ -58,137 +105,324 @@ def computeTrajectoryBS(n,iniconds,const,params,laenge,destime):
     trajectory of A, of B, of C, trajectory the expected value of of A conditional on B and C, its second moment, expected value of A given C, its second moment, B given C, its second moment, C given A, its second moment, B given A, its second moment, transfer entropy C->A, transfer entropy A->C, path mutual information
         
     '''
-    g0,r0,p0=iniconds #assigning initial conditions 
+    a0,b0,c0=iniconds #assigning initial conditions 
     K,eps,mu=params
-    gt,rt,pt,r1gp,r2gp,g1p,g2p,r1p,r2p,grp,r1g,r2g,p1g,p2g,rpg,mig,mip,mi=[np.zeros(laenge) for i in range(18)] #definition of the trajectories
-    updates=[[1,0,0],[-1,0,0],[0,1,0],[0,-1,0],[0,0,1],[0,0,-1]] #stoichiometric changes
-
-    t=0 #determines the whole time that has already passed 
-    tau=0 #determines the actual time point for the numerical integration
-    g=g0
-    r=r0
-    p=p0
-    gt[0]=g0
-    rt[0]=r0
-    pt[0]=p0
-    t_max=destime[-1]
-    j=0
-    h=0
-    r1gp[0]=r0
-    r2gp[0]=r0*r0
-    g1p[0]=g0
-    g2p[0]=g0*g0
-    r1p[0]=r0
-    r2p[0]=r0*r0
-    grp[0]=r0*g0
-    sol=np.array([[r0,r0*r0,g0,g0*g0,r0,r0*r0,g0*r0,r0,r0*r0,p0,p0*p0,r0*p0,0,0]])
-    while (t<t_max): 
+    if exact==True:
+        abvec=np.zeros(dim*dim) #defines the lattice of the copy numbers of species A and B
+        for i in range(dim*dim):
+            abvec[i]=i%dim
+        bcvec=np.zeros(dim*dim)
+        for i in range(dim*dim):
+            bcvec[i]=mu*i*i*i/(K*K*K+i*i*i)+eps
+            
+        Pt_mi=np.zeros((1,dim*dim+dim+1+dim*dim)) #array that will contain the conditional probability distributions and the mutual information, dimension will change
+        dydt=np.zeros(dim*dim+dim+1+dim*dim) #for the numerical integration
+        Pt_mi[0][b0]=1
+        Pt_mi[0][dim+1+dim*a0+b0]=1
+        Pt_mi[0][dim+1+dim*dim+dim*b0+c0]=1 
+        at,bt,ct,mi_exact,b1ac,b2ac,a1c,a2c,b1c,b2c,abc,b1a,b2a,c1a,c2a,bca,mia,mic,mi=[np.zeros(laenge) for i in range(19)]
+        updates=[[1,0,0],[-1,0,0],[0,1,0],[0,-1,0],[0,0,1],[0,0,-1]] #stoichiometric changes
+        dPAC1,dPAC2=[np.zeros(dim) for i in range(2)] #for the numerical integration
+        dPC1,dPC2,dPA1,dPA2=[np.zeros(dim*dim) for i in range(4)] #for the numerical integration
         
-        const[0]=p*p*p/float(K*K*K+p*p*p)*mu+eps  
-        propensities=[const[0], const[1]*g, const[2]*g, const[3]*r, const[4]*r, const[5]*p] #SSA 
-        reacsum=sum(propensities) #SSA 
-        time=-np.log(rnd.uniform(0.0,1.0))/float(reacsum) #SSA 
-        RV=rnd.uniform(0.0,1.0)*reacsum     #SSA  
-        index=1 #SSA 
-        value=propensities[0] #SSA 
-        while value<RV: #SSA 
-            index+=1 #SSA  
-            value+=propensities[index-1]  #SSA  
+    
+        t=0 #determines the whole time that has already passed 
+        tau=0 #determines the actual time point for the numerical integration
+        Pt_ac=np.zeros((laenge,dim)) #array that will contain all the probability distributions conditional on A and C of the different time points
+        Pt_c=np.zeros((laenge,dim*dim)) #array that will contain all the probability distributions conditional on C of the different time points
+        Pt_a=np.zeros((laenge,dim*dim)) #array that will contain all the probability distributions conditional on A of the different time points
+        a=a0
+        b=b0
+        c=c0
+        at[0]=a0
+        bt[0]=b0
+        ct[0]=c0
+        t_max=destime[-1]
+        mAC=np.zeros((dim,dim)) #integration matrix for Pt_ac
+        updateMatrixAC(dim,a,const,mAC)
+        mC=np.zeros((dim*dim,dim*dim)) #integration matrix for Pt_c
+        updateMatrixC(dim,const,mC)
+        mA=np.zeros((dim*dim,dim*dim)) #integration for Pt_a
+        updateMatrixA(dim,a,const,mA,params)
+        h=0
+        sol=np.array([[b0,b0*b0,a0,a0*a0,b0,b0*b0,a0*b0,b0,b0*b0,c0,c0*c0,b0*c0,0,0]])
+        while (t<t_max): 
             
-        if h<len(destime): #step-wise integration algorithm of the conditional probability distributions and the path mutual information 
-            while destime[h]<(t+time):  
+            const[0]=c*c*c/float(K*K*K+c*c*c)*mu+eps  
+            propensities=[const[0], const[1]*a, const[2]*a, const[3]*b, const[4]*b, const[5]*c] #SSA 
+            reacsum=sum(propensities) #SSA 
+            time=-np.log(rnd.uniform(0.0,1.0))/float(reacsum) #SSA 
+            RV=rnd.uniform(0.0,1.0)*reacsum     #SSA  
+            index=1 #SSA 
+            value=propensities[0] #SSA 
+            while value<RV: #SSA 
+                index+=1 #SSA  
+                value+=propensities[index-1]  #SSA 
+            
+            if h<len(destime): #step-wise integration algorithm of the conditional probability distributions and the path mutual information 
+                while destime[h]<(t+time): 
+                    y0=[sol[-1,0],sol[-1,1],sol[-1,2],sol[-1,3],sol[-1,4],sol[-1,5],sol[-1,6],sol[-1,7],sol[-1,8],sol[-1,9],sol[-1,10],sol[-1,11],sol[-1,12],sol[-1,13]]
+                    P0=Pt_mi[-1].copy()
+                    timevec=np.linspace(tau,destime[h],5) #integration interval
+                    sol=odeint(evolveBS,y0,timevec, args=(a,c,const,K,eps,mu),rtol=1e-6) #integration from the actual time point until the next desired time point
+                    Pt_mi=odeint(evolveQuasiExactBS,P0,timevec, args=(mAC,mC,mA,dim,const,dPAC1,dPAC2,dPC1,dPC2,dPA1,dPA2,dydt,abvec,bcvec)) 
+                    
+                    tau=destime[h] #update the actual time point from which the next integration starts
+                    b1ac[h]=sol[-1,0] #update of the species
+                    b2ac[h]=sol[-1,1]
+                    a1c[h]=sol[-1,2]
+                    a2c[h]=sol[-1,3]
+                    b1c[h]=sol[-1,4]
+                    b2c[h]=sol[-1,5]
+                    abc[h]=sol[-1,6]
+                    b1a[h]=sol[-1,7]
+                    b2a[h]=sol[-1,8]
+                    c1a[h]=sol[-1,9]
+                    c2a[h]=sol[-1,10]
+                    bca[h]=sol[-1,11]
+                    mia[h]=sol[-1,12]
+                    mic[h]=sol[-1,13]
+                    mi[h]=mia[h]+mic[h]                   
+                    Pt_mi[-1][:dim]=Pt_mi[-1][:dim].copy()/np.sum(Pt_mi[-1][:dim])
+                    Pt_mi[-1][dim+1:dim+1+dim*dim]=Pt_mi[-1][dim+1:dim+1+dim*dim].copy()/np.sum(Pt_mi[-1][dim+1:dim+1+dim*dim])
+                    Pt_mi[-1][dim+1+dim*dim:]=Pt_mi[-1][dim+1+dim*dim:].copy()/np.sum(Pt_mi[-1][dim+1+dim*dim:])
+                    Pt_ac[h]=Pt_mi[-1][:dim].copy()
+                    Pt_c[h]=Pt_mi[-1][dim+1:dim+1+dim*dim].copy()
+                    Pt_a[h]=Pt_mi[-1][dim+1+dim*dim:].copy()
+                    mi_exact[h]=Pt_mi[-1][dim]
+                    at[h]=a
+                    bt[h]=b
+                    ct[h]=c
+                    h=h+1
+                    if h>=len(destime)-1:
+                        break
+    
                 y0=[sol[-1,0],sol[-1,1],sol[-1,2],sol[-1,3],sol[-1,4],sol[-1,5],sol[-1,6],sol[-1,7],sol[-1,8],sol[-1,9],sol[-1,10],sol[-1,11],sol[-1,12],sol[-1,13]]
-                timevec=np.linspace(tau,destime[h],5) #integration interval
-                sol=odeint(evolveBS,y0,timevec, args=(g,p,const,K,eps,mu),rtol=1e-6) #integration from the actual time point until the next desired time point
-                tau=destime[h] #update the actual time point from which the next integration starts
-                r1gp[h]=sol[-1,0] #update of the species
-                r2gp[h]=sol[-1,1]
-                g1p[h]=sol[-1,2]
-                g2p[h]=sol[-1,3]
-                r1p[h]=sol[-1,4]
-                r2p[h]=sol[-1,5]
-                grp[h]=sol[-1,6]
-                r1g[h]=sol[-1,7]
-                r2g[h]=sol[-1,8]
-                p1g[h]=sol[-1,9]
-                p2g[h]=sol[-1,10]
-                rpg[h]=sol[-1,11]
-                mig[h]=sol[-1,12]
-                mip[h]=sol[-1,13]
-                mi[h]=mig[h]+mip[h]
-                gt[h]=g
-                rt[h]=r
-                pt[h]=p
-                if h==250:
-                    sol[-1,12]=0
-                    sol[-1,13]=0
-                h=h+1
-                j=j+1
-                if h>=len(destime)-1:
-                    break
-            y0=[sol[-1,0],sol[-1,1],sol[-1,2],sol[-1,3],sol[-1,4],sol[-1,5],sol[-1,6],sol[-1,7],sol[-1,8],sol[-1,9],sol[-1,10],sol[-1,11],sol[-1,12],sol[-1,13]]
-
-            timevec=np.linspace(tau,t+time,5)
-            sol=odeint(evolveBS,y0,timevec, args=(g,p,const,K,eps,mu),rtol=1e-6)  #integration from the actual time point until the next desired time point 
-            tau=t+time #update the actual time point from which the next integration starts
-        t=t+time #update of the total time 
-        if index==5: #evaluation of the stochastic integral for the jumps (reaction 5)
-            r1gp[h]=sol[-1,0]+(sol[-1,1]-sol[-1,0]*sol[-1,0])/sol[-1,0]
-            r2gp[h]=sol[-1,1]+(2*sol[-1,1]*sol[-1,1]/sol[-1,0]-sol[-1,0]*sol[-1,1]*2)/sol[-1,0]
-            g1p[h]=sol[-1,2]+(sol[-1,6]-sol[-1,2]*sol[-1,4])/sol[-1,4]
-            g2p[h]=sol[-1,3]+(2*(sol[-1,3]*sol[-1,6]/sol[-1,2])-sol[-1,3]*sol[-1,4]*2)/sol[-1,4]
-            r1p[h]=sol[-1,4]+(sol[-1,5]-sol[-1,4]*sol[-1,4])/sol[-1,4]
-            r2p[h]=sol[-1,5]+(2*sol[-1,5]*sol[-1,5]/sol[-1,4]-2*sol[-1,5]*sol[-1,4])/sol[-1,4]
-            grp[h]=sol[-1,6]+(2*sol[-1,5]*sol[-1,6]/sol[-1,4]-sol[-1,5]*sol[-1,2]-sol[-1,4]*sol[-1,6])/sol[-1,4]
-            
-            if sol[-1,0]==0 and sol[-1,4]!=0:
-                mip[h]=sol[-1,13]-np.log(const[4]*sol[-1,4])
-            if sol[-1,0]!=0 and sol[-1,4]==0:   
-                mip[h]=sol[-1,13]+np.log(const[4]*sol[-1,0])
-            if sol[-1,0]==0 and sol[-1,4]==0:
-                mip[h]=sol[-1,13]
-            if sol[-1,0]!=0 and sol[-1,4]!=0:
-                mip[h]=sol[-1,13]+np.log(const[4]*sol[-1,0])-np.log(const[4]*sol[-1,4])
-            sol[-1,0]=r1gp[h] #r1gp,r2gp,g1p,r1p,r2p,grp,r1g,r2g,p1g,p2g,rpg,mig,mip
-            sol[-1,1]=r2gp[h]
-            sol[-1,2]=g1p[h]
-            sol[-1,3]=g2p[h]
-            sol[-1,4]=r1p[h]
-            sol[-1,5]=r2p[h]
-            sol[-1,6]=grp[h] 
-            sol[-1,13]=mip[h]
-
+                P0=Pt_mi[-1].copy()
+    
+                timevec=np.linspace(tau,t+time,5)
+                sol=odeint(evolveBS,y0,timevec, args=(a,c,const,K,eps,mu),rtol=1e-6) #integration from the actual time point until the next desired time point
+                Pt_mi=odeint(evolveQuasiExactBS,P0,timevec, args=(mAC,mC,mA,dim,const,dPAC1,dPAC2,dPC1,dPC2,dPA1,dPA2,dydt,abvec,bcvec))
+                Pt_mi[-1][:dim]=Pt_mi[-1][:dim].copy()/np.sum(Pt_mi[-1][:dim])
+                Pt_mi[-1][dim+1:dim+1+dim*dim]=Pt_mi[-1][dim+1:dim+1+dim*dim].copy()/np.sum(Pt_mi[-1][dim+1:dim+1+dim*dim])
+                Pt_mi[-1][dim+1+dim*dim:]=Pt_mi[-1][dim+1+dim*dim:].copy()/np.sum(Pt_mi[-1][dim+1+dim*dim:])
+                tau=t+time #update the actual time point from which the next integration starts
                 
-        if index==1: #evaluation of the stochastic integral for the jumps (reaction 1)
-            lambdagp=(mu*p*p*p/float(K*K*K+p*p*p)+eps) 
-            lambdag=(mu*sol[-1,9]*sol[-1,9]*sol[-1,9]/(K*K*K+sol[-1,9]*sol[-1,9]*sol[-1,9])+eps)
-            r1g[h]=sol[-1,7]+(3*mu*sol[-1,9]*sol[-1,9]/(K*K*K+sol[-1,9]*sol[-1,9]*sol[-1,9])-3*mu*sol[-1,9]*sol[-1,9]*sol[-1,9]*sol[-1,9]*sol[-1,9]/((K*K*K+sol[-1,9]*sol[-1,9]*sol[-1,9])*(K*K*K+sol[-1,9]*sol[-1,9]*sol[-1,9])))*(sol[-1,11]-sol[-1,9]*sol[-1,7])/(mu*sol[-1,9]*sol[-1,9]*sol[-1,9]/(K*K*K+sol[-1,9]*sol[-1,9]*sol[-1,9])+eps)
-            r2g[h]=sol[-1,8]+(3*mu*sol[-1,9]*sol[-1,9]/(K*K*K+sol[-1,9]*sol[-1,9]*sol[-1,9])-3*mu*sol[-1,9]*sol[-1,9]*sol[-1,9]*sol[-1,9]*sol[-1,9]/((K*K*K+sol[-1,9]*sol[-1,9]*sol[-1,9])*(K*K*K+sol[-1,9]*sol[-1,9]*sol[-1,9])))*(2*sol[-1,8]*sol[-1,11]/sol[-1,7]-2*sol[-1,8]*sol[-1,9])/(mu*sol[-1,9]*sol[-1,9]*sol[-1,9]/(K*K*K+sol[-1,9]*sol[-1,9]*sol[-1,9])+eps)
-            p1g[h]=sol[-1,9]+(3*mu*sol[-1,9]*sol[-1,9]/(K*K*K+sol[-1,9]*sol[-1,9]*sol[-1,9])-3*mu*sol[-1,9]*sol[-1,9]*sol[-1,9]*sol[-1,9]*sol[-1,9]/((K*K*K+sol[-1,9]*sol[-1,9]*sol[-1,9])*(K*K*K+sol[-1,9]*sol[-1,9]*sol[-1,9])))*(sol[-1,10]-sol[-1,9]*sol[-1,9])/(mu*sol[-1,9]*sol[-1,9]*sol[-1,9]/(K*K*K+sol[-1,9]*sol[-1,9]*sol[-1,9])+eps)
-            p2g[h]=sol[-1,10]+(3*mu*sol[-1,9]*sol[-1,9]/(K*K*K+sol[-1,9]*sol[-1,9]*sol[-1,9])-3*mu*sol[-1,9]*sol[-1,9]*sol[-1,9]*sol[-1,9]*sol[-1,9]/((K*K*K+sol[-1,9]*sol[-1,9]*sol[-1,9])*(K*K*K+sol[-1,9]*sol[-1,9]*sol[-1,9])))*(2*sol[-1,10]*sol[-1,10]/sol[-1,9]-2*sol[-1,10]*sol[-1,9])/(mu*sol[-1,9]*sol[-1,9]*sol[-1,9]/(K*K*K+sol[-1,9]*sol[-1,9]*sol[-1,9])+eps)
-            rpg[h]=sol[-1,11]+(3*mu*sol[-1,9]*sol[-1,9]/(K*K*K+sol[-1,9]*sol[-1,9]*sol[-1,9])-3*mu*sol[-1,9]*sol[-1,9]*sol[-1,9]*sol[-1,9]*sol[-1,9]/((K*K*K+sol[-1,9]*sol[-1,9]*sol[-1,9])*(K*K*K+sol[-1,9]*sol[-1,9]*sol[-1,9])))*(2*sol[-1,10]*sol[-1,11]/sol[-1,9]-sol[-1,10]*sol[-1,7]-sol[-1,9]*sol[-1,11])/(mu*sol[-1,9]*sol[-1,9]*sol[-1,9]/(K*K*K+sol[-1,9]*sol[-1,9]*sol[-1,9])+eps)
-            if lambdagp==0 and lambdag!=0:
-                mig[h]=sol[-1,12]-np.log(lambdag)
-            if lambdagp!=0 and lambdag==0:
-                mig[h]=sol[-1,12]+np.log(lambdagp)
-            if lambdagp==0 and lambdag==0:
-                mig[h]=sol[-1,12]
-            if lambdagp!=0 and lambdag!=0:
-                mig[h]=sol[-1,12]+np.log(lambdagp)-np.log(lambdag)
-            sol[-1,7]=r1g[h]
-            sol[-1,8]=r2g[h]
-            sol[-1,9]=p1g[h]
-            sol[-1,10]=p2g[h]
-            sol[-1,11]=rpg[h]
-            sol[-1,12]=mig[h]
-            
-        mi[h]=mig[h]+mip[h]
-        g+=updates[index-1][0] #update of the SSA trajectories
-        r+=updates[index-1][1]
-        p+=updates[index-1][2]
-    return gt[:-1],rt[:-1],pt[:-1],r1gp[:-1],r2gp[:-1],g1p[:-1],g2p[:-1],r1p[:-1],r2p[:-1],grp[:-1],r1g[:-1],r2g[:-1],p1g[:-1],p2g[:-1],rpg[:-1],mig[:-1],mip[:-1],mi[:-1]
+            t=t+time #update the total time 
+            if index==5: #evaluation of the stochastic integral for the jumps (reaction 5)
+                b1ac[h]=sol[-1,0]+(sol[-1,1]-sol[-1,0]*sol[-1,0])/sol[-1,0]
+                b2ac[h]=sol[-1,1]+(2*sol[-1,1]*sol[-1,1]/sol[-1,0]-sol[-1,0]*sol[-1,1]*2)/sol[-1,0]
+                a1c[h]=sol[-1,2]+(sol[-1,6]-sol[-1,2]*sol[-1,4])/sol[-1,4]
+                a2c[h]=sol[-1,3]+(2*(sol[-1,3]*sol[-1,6]/sol[-1,2])-sol[-1,3]*sol[-1,4]*2)/sol[-1,4]
+                b1c[h]=sol[-1,4]+(sol[-1,5]-sol[-1,4]*sol[-1,4])/sol[-1,4]
+                b2c[h]=sol[-1,5]+(2*sol[-1,5]*sol[-1,5]/sol[-1,4]-2*sol[-1,5]*sol[-1,4])/sol[-1,4]
+                abc[h]=sol[-1,6]+(2*sol[-1,5]*sol[-1,6]/sol[-1,4]-sol[-1,5]*sol[-1,2]-sol[-1,4]*sol[-1,6])/sol[-1,4]
+                
+                if sol[-1,0]==0 and sol[-1,4]!=0:
+                    mic[h]=sol[-1,13]-np.log(const[4]*sol[-1,4])
+                if sol[-1,0]!=0 and sol[-1,4]==0:   
+                    mic[h]=sol[-1,13]+np.log(const[4]*sol[-1,0])
+                if sol[-1,0]==0 and sol[-1,4]==0:
+                    mic[h]=sol[-1,13]
+                if sol[-1,0]!=0 and sol[-1,4]!=0:
+                    mic[h]=sol[-1,13]+np.log(const[4]*sol[-1,0])-np.log(const[4]*sol[-1,4])
+                sol[-1,0]=b1ac[h] 
+                sol[-1,1]=b2ac[h]
+                sol[-1,2]=a1c[h]
+                sol[-1,3]=a2c[h]
+                sol[-1,4]=b1c[h]
+                sol[-1,5]=b2c[h]
+                sol[-1,6]=abc[h] 
+                sol[-1,13]=mic[h]
+                
+                Pt_ac[h]=Pt_mi[-1][:dim].copy()+dN(Pt_mi[-1][:dim].copy(),dim)
+                Pt_c[h]=Pt_mi[-1][dim+1:dim+1+dim*dim].copy()+dN2D(Pt_mi[-1][dim+1:dim+1+dim*dim].copy(),dim)
+                b1ac_exact=np.dot(Pt_mi[-1][:dim],[k for k in range(dim)])
+                b1c_exact=mean2d(Pt_mi[-1][dim+1:dim+1+dim*dim],dim)
+                if b1ac_exact==0 and b1c_exact!=0:
+                    mi_exact[h]=Pt_mi[-1][dim]-np.log(const[4]*b1c_exact)
+                if b1c_exact==0 and b1ac_exact!=0:
+                    mi_exact[h]=Pt_mi[-1][dim]+np.log(const[4]*b1ac_exact)
+                if b1c_exact==0 and b1ac_exact==0:
+                    mi_exact[h]=Pt_mi[-1][dim]
+                if b1c_exact!=0 and b1ac_exact!=0:
+                    mi_exact[h]=Pt_mi[-1][dim]+(np.log(const[4]*b1ac_exact)-np.log(const[4]*b1c_exact))
 
-def parallelisationBS(core,MC,iniconds,const,params,laenge,timevec):
+                Pt_ac[h]=Pt_ac[h].copy()/np.sum(Pt_ac[h])
+                Pt_c[h]=Pt_c[h].copy()/np.sum(Pt_c[h])
+                Pt_mi[-1][:dim]=Pt_ac[h].copy()
+                Pt_mi[-1][dim+1:dim+1+dim*dim]=Pt_c[h].copy()
+                Pt_mi[-1][dim]=mi_exact[h]
+                
+            if index==1: #evaluation of the stochastic integral for the jumps (reaction 1)
+                lambdaac=(mu*c*c*c/float(K*K*K+c*c*c)+eps) 
+                lambdaa=(mu*sol[-1,9]*sol[-1,9]*sol[-1,9]/(K*K*K+sol[-1,9]*sol[-1,9]*sol[-1,9])+eps)
+                b1a[h]=sol[-1,7]+(3*mu*sol[-1,9]*sol[-1,9]/(K*K*K+sol[-1,9]*sol[-1,9]*sol[-1,9])-3*mu*sol[-1,9]*sol[-1,9]*sol[-1,9]*sol[-1,9]*sol[-1,9]/((K*K*K+sol[-1,9]*sol[-1,9]*sol[-1,9])*(K*K*K+sol[-1,9]*sol[-1,9]*sol[-1,9])))*(sol[-1,11]-sol[-1,9]*sol[-1,7])/(mu*sol[-1,9]*sol[-1,9]*sol[-1,9]/(K*K*K+sol[-1,9]*sol[-1,9]*sol[-1,9])+eps)
+                b2a[h]=sol[-1,8]+(3*mu*sol[-1,9]*sol[-1,9]/(K*K*K+sol[-1,9]*sol[-1,9]*sol[-1,9])-3*mu*sol[-1,9]*sol[-1,9]*sol[-1,9]*sol[-1,9]*sol[-1,9]/((K*K*K+sol[-1,9]*sol[-1,9]*sol[-1,9])*(K*K*K+sol[-1,9]*sol[-1,9]*sol[-1,9])))*(2*sol[-1,8]*sol[-1,11]/sol[-1,7]-2*sol[-1,8]*sol[-1,9])/(mu*sol[-1,9]*sol[-1,9]*sol[-1,9]/(K*K*K+sol[-1,9]*sol[-1,9]*sol[-1,9])+eps)
+                c1a[h]=sol[-1,9]+(3*mu*sol[-1,9]*sol[-1,9]/(K*K*K+sol[-1,9]*sol[-1,9]*sol[-1,9])-3*mu*sol[-1,9]*sol[-1,9]*sol[-1,9]*sol[-1,9]*sol[-1,9]/((K*K*K+sol[-1,9]*sol[-1,9]*sol[-1,9])*(K*K*K+sol[-1,9]*sol[-1,9]*sol[-1,9])))*(sol[-1,10]-sol[-1,9]*sol[-1,9])/(mu*sol[-1,9]*sol[-1,9]*sol[-1,9]/(K*K*K+sol[-1,9]*sol[-1,9]*sol[-1,9])+eps)
+                c2a[h]=sol[-1,10]+(3*mu*sol[-1,9]*sol[-1,9]/(K*K*K+sol[-1,9]*sol[-1,9]*sol[-1,9])-3*mu*sol[-1,9]*sol[-1,9]*sol[-1,9]*sol[-1,9]*sol[-1,9]/((K*K*K+sol[-1,9]*sol[-1,9]*sol[-1,9])*(K*K*K+sol[-1,9]*sol[-1,9]*sol[-1,9])))*(2*sol[-1,10]*sol[-1,10]/sol[-1,9]-2*sol[-1,10]*sol[-1,9])/(mu*sol[-1,9]*sol[-1,9]*sol[-1,9]/(K*K*K+sol[-1,9]*sol[-1,9]*sol[-1,9])+eps)
+                bca[h]=sol[-1,11]+(3*mu*sol[-1,9]*sol[-1,9]/(K*K*K+sol[-1,9]*sol[-1,9]*sol[-1,9])-3*mu*sol[-1,9]*sol[-1,9]*sol[-1,9]*sol[-1,9]*sol[-1,9]/((K*K*K+sol[-1,9]*sol[-1,9]*sol[-1,9])*(K*K*K+sol[-1,9]*sol[-1,9]*sol[-1,9])))*(2*sol[-1,10]*sol[-1,11]/sol[-1,9]-sol[-1,10]*sol[-1,7]-sol[-1,9]*sol[-1,11])/(mu*sol[-1,9]*sol[-1,9]*sol[-1,9]/(K*K*K+sol[-1,9]*sol[-1,9]*sol[-1,9])+eps)
+                if lambdaac==0 and lambdaa!=0:
+                    mia[h]=sol[-1,12]-np.log(lambdaa)
+                if lambdaac!=0 and lambdaa==0:
+                    mia[h]=sol[-1,12]+np.log(lambdaac)
+                if lambdaac==0 and lambdaa==0:
+                    mia[h]=sol[-1,12]
+                if lambdaac!=0 and lambdaa!=0:
+                    mia[h]=sol[-1,12]+np.log(lambdaac)-np.log(lambdaa)
+                sol[-1,7]=b1a[h]
+                sol[-1,8]=b2a[h]
+                sol[-1,9]=c1a[h]
+                sol[-1,10]=c2a[h]
+                sol[-1,11]=bca[h]
+                sol[-1,12]=mia[h]
+                
+                Pt_a[h]=Pt_mi[-1][dim+1+dim*dim:].copy()+dN_hill(Pt_mi[-1][dim+1+dim*dim:].copy(),dim,params)
+                k1_exact=mean_hill(Pt_mi[-1][dim+1+dim*dim:],dim,params)
+                if const[0]!=0 and k1_exact!=0:
+                    mi_exact[h]=Pt_mi[-1][dim]+(np.log(const[0])-np.log(k1_exact))
+                if const[0]==0 and k1_exact==0:
+                    mi_exact[h]=Pt_mi[-1][dim]
+                if const[0]!=0 and k1_exact==0:
+                    mi_exact[h]=Pt_mi[-1][dim]+np.log(const[0])
+                if const[0]==0 and k1_exact!=0:
+                    mi_exact[h]=Pt_mi[-1][dim]-np.log(k1_exact)
+                Pt_a[h]=Pt_a[h].copy()/np.sum(Pt_a[h])
+                Pt_mi[-1][dim+1+dim*dim:]=Pt_a[h].copy()
+                Pt_mi[-1][dim]=mi_exact[h]
+                
+            mi[h]=mia[h]+mic[h]
+            a+=updates[index-1][0] #update of the SSA trajectories 
+            b+=updates[index-1][1]
+            c+=updates[index-1][2]
+            updateMatrixAC(dim,a,const,mAC) #update of the matrices for the quasi-exact integration of the filtering equation 
+            updateMatrixC(dim,const,mC)
+            updateMatrixA(dim,a,const,mA,params)
+        return at[:-1],bt[:-1],ct[:-1],mi_exact[:-1],Pt_ac,Pt_c,Pt_a,b1ac[:-1],b2ac[:-1],a1c[:-1],a2c[:-1],b1c[:-1],b2c[:-1],abc[:-1],b1a[:-1],b2a[:-1],c1a[:-1],c2a[:-1],bca[:-1],mia[:-1],mic[:-1],mi[:-1]
+        
+        
+        
+    else:
+        at,bt,ct,b1ac,b2ac,a1c,a2c,b1c,b2c,abc,b1a,b2a,c1a,c2a,bca,mia,mic,mi=[np.zeros(laenge) for i in range(18)] #definition of the trajectories
+        updates=[[1,0,0],[-1,0,0],[0,1,0],[0,-1,0],[0,0,1],[0,0,-1]] #stoichiometric changes
+    
+        t=0 #determines the whole time that has already passed 
+        tau=0 #determines the actual time point for the numerical integration
+        a=a0
+        b=b0
+        c=c0
+        at[0]=a0
+        bt[0]=b0
+        ct[0]=c0
+        t_max=destime[-1]
+        h=0
+        sol=np.array([[b0,b0*b0,a0,a0*a0,b0,b0*b0,a0*b0,b0,b0*b0,c0,c0*c0,b0*c0,0,0]])
+        while (t<t_max): 
+            
+            const[0]=c*c*c/float(K*K*K+c*c*c)*mu+eps  
+            propensities=[const[0], const[1]*a, const[2]*a, const[3]*b, const[4]*b, const[5]*c] #SSA 
+            reacsum=sum(propensities) #SSA 
+            time=-np.log(rnd.uniform(0.0,1.0))/float(reacsum) #SSA 
+            RV=rnd.uniform(0.0,1.0)*reacsum     #SSA  
+            index=1 #SSA 
+            value=propensities[0] #SSA 
+            while value<RV: #SSA 
+                index+=1 #SSA  
+                value+=propensities[index-1]  #SSA  
+                
+            if h<len(destime): #step-wise integration algorithm of the conditional probability distributions and the path mutual information 
+                while destime[h]<(t+time):  
+                    y0=[sol[-1,0],sol[-1,1],sol[-1,2],sol[-1,3],sol[-1,4],sol[-1,5],sol[-1,6],sol[-1,7],sol[-1,8],sol[-1,9],sol[-1,10],sol[-1,11],sol[-1,12],sol[-1,13]]
+                    timevec=np.linspace(tau,destime[h],5) #integration interval
+                    sol=odeint(evolveBS,y0,timevec, args=(a,c,const,K,eps,mu),rtol=1e-6) #integration from the actual time point until the next desired time point
+                    tau=destime[h] #update the actual time point from which the next integration starts
+                    b1ac[h]=sol[-1,0] #update of the species
+                    b2ac[h]=sol[-1,1]
+                    a1c[h]=sol[-1,2]
+                    a2c[h]=sol[-1,3]
+                    b1c[h]=sol[-1,4]
+                    b2c[h]=sol[-1,5]
+                    abc[h]=sol[-1,6]
+                    b1a[h]=sol[-1,7]
+                    b2a[h]=sol[-1,8]
+                    c1a[h]=sol[-1,9]
+                    c2a[h]=sol[-1,10]
+                    bca[h]=sol[-1,11]
+                    mia[h]=sol[-1,12]
+                    mic[h]=sol[-1,13]
+                    mi[h]=mia[h]+mic[h]
+                    at[h]=a
+                    bt[h]=b
+                    ct[h]=c
+                    if h==250:
+                        sol[-1,12]=0
+                        sol[-1,13]=0
+                    h=h+1
+                    if h>=len(destime)-1:
+                        break
+                y0=[sol[-1,0],sol[-1,1],sol[-1,2],sol[-1,3],sol[-1,4],sol[-1,5],sol[-1,6],sol[-1,7],sol[-1,8],sol[-1,9],sol[-1,10],sol[-1,11],sol[-1,12],sol[-1,13]]
+    
+                timevec=np.linspace(tau,t+time,5)
+                sol=odeint(evolveBS,y0,timevec, args=(a,c,const,K,eps,mu),rtol=1e-6)  #integration from the actual time point until the next desired time point 
+                tau=t+time #update the actual time point from which the next integration starts
+            t=t+time #update of the total time 
+            if index==5: #evaluation of the stochastic integral for the jumps (reaction 5)
+                b1ac[h]=sol[-1,0]+(sol[-1,1]-sol[-1,0]*sol[-1,0])/sol[-1,0]
+                b2ac[h]=sol[-1,1]+(2*sol[-1,1]*sol[-1,1]/sol[-1,0]-sol[-1,0]*sol[-1,1]*2)/sol[-1,0]
+                a1c[h]=sol[-1,2]+(sol[-1,6]-sol[-1,2]*sol[-1,4])/sol[-1,4]
+                a2c[h]=sol[-1,3]+(2*(sol[-1,3]*sol[-1,6]/sol[-1,2])-sol[-1,3]*sol[-1,4]*2)/sol[-1,4]
+                b1c[h]=sol[-1,4]+(sol[-1,5]-sol[-1,4]*sol[-1,4])/sol[-1,4]
+                b2c[h]=sol[-1,5]+(2*sol[-1,5]*sol[-1,5]/sol[-1,4]-2*sol[-1,5]*sol[-1,4])/sol[-1,4]
+                abc[h]=sol[-1,6]+(2*sol[-1,5]*sol[-1,6]/sol[-1,4]-sol[-1,5]*sol[-1,2]-sol[-1,4]*sol[-1,6])/sol[-1,4]
+                
+                if sol[-1,0]==0 and sol[-1,4]!=0:
+                    mic[h]=sol[-1,13]-np.log(const[4]*sol[-1,4])
+                if sol[-1,0]!=0 and sol[-1,4]==0:   
+                    mic[h]=sol[-1,13]+np.log(const[4]*sol[-1,0])
+                if sol[-1,0]==0 and sol[-1,4]==0:
+                    mic[h]=sol[-1,13]
+                if sol[-1,0]!=0 and sol[-1,4]!=0:
+                    mic[h]=sol[-1,13]+np.log(const[4]*sol[-1,0])-np.log(const[4]*sol[-1,4])
+                sol[-1,0]=b1ac[h]
+                sol[-1,1]=b2ac[h]
+                sol[-1,2]=a1c[h]
+                sol[-1,3]=a2c[h]
+                sol[-1,4]=b1c[h]
+                sol[-1,5]=b2c[h]
+                sol[-1,6]=abc[h] 
+                sol[-1,13]=mic[h]
+    
+                    
+            if index==1: #evaluation of the stochastic integral for the jumps (reaction 1)
+                lambdaac=(mu*c*c*c/float(K*K*K+c*c*c)+eps) 
+                lambdaa=(mu*sol[-1,9]*sol[-1,9]*sol[-1,9]/(K*K*K+sol[-1,9]*sol[-1,9]*sol[-1,9])+eps)
+                b1a[h]=sol[-1,7]+(3*mu*sol[-1,9]*sol[-1,9]/(K*K*K+sol[-1,9]*sol[-1,9]*sol[-1,9])-3*mu*sol[-1,9]*sol[-1,9]*sol[-1,9]*sol[-1,9]*sol[-1,9]/((K*K*K+sol[-1,9]*sol[-1,9]*sol[-1,9])*(K*K*K+sol[-1,9]*sol[-1,9]*sol[-1,9])))*(sol[-1,11]-sol[-1,9]*sol[-1,7])/(mu*sol[-1,9]*sol[-1,9]*sol[-1,9]/(K*K*K+sol[-1,9]*sol[-1,9]*sol[-1,9])+eps)
+                b2a[h]=sol[-1,8]+(3*mu*sol[-1,9]*sol[-1,9]/(K*K*K+sol[-1,9]*sol[-1,9]*sol[-1,9])-3*mu*sol[-1,9]*sol[-1,9]*sol[-1,9]*sol[-1,9]*sol[-1,9]/((K*K*K+sol[-1,9]*sol[-1,9]*sol[-1,9])*(K*K*K+sol[-1,9]*sol[-1,9]*sol[-1,9])))*(2*sol[-1,8]*sol[-1,11]/sol[-1,7]-2*sol[-1,8]*sol[-1,9])/(mu*sol[-1,9]*sol[-1,9]*sol[-1,9]/(K*K*K+sol[-1,9]*sol[-1,9]*sol[-1,9])+eps)
+                c1a[h]=sol[-1,9]+(3*mu*sol[-1,9]*sol[-1,9]/(K*K*K+sol[-1,9]*sol[-1,9]*sol[-1,9])-3*mu*sol[-1,9]*sol[-1,9]*sol[-1,9]*sol[-1,9]*sol[-1,9]/((K*K*K+sol[-1,9]*sol[-1,9]*sol[-1,9])*(K*K*K+sol[-1,9]*sol[-1,9]*sol[-1,9])))*(sol[-1,10]-sol[-1,9]*sol[-1,9])/(mu*sol[-1,9]*sol[-1,9]*sol[-1,9]/(K*K*K+sol[-1,9]*sol[-1,9]*sol[-1,9])+eps)
+                c2a[h]=sol[-1,10]+(3*mu*sol[-1,9]*sol[-1,9]/(K*K*K+sol[-1,9]*sol[-1,9]*sol[-1,9])-3*mu*sol[-1,9]*sol[-1,9]*sol[-1,9]*sol[-1,9]*sol[-1,9]/((K*K*K+sol[-1,9]*sol[-1,9]*sol[-1,9])*(K*K*K+sol[-1,9]*sol[-1,9]*sol[-1,9])))*(2*sol[-1,10]*sol[-1,10]/sol[-1,9]-2*sol[-1,10]*sol[-1,9])/(mu*sol[-1,9]*sol[-1,9]*sol[-1,9]/(K*K*K+sol[-1,9]*sol[-1,9]*sol[-1,9])+eps)
+                bca[h]=sol[-1,11]+(3*mu*sol[-1,9]*sol[-1,9]/(K*K*K+sol[-1,9]*sol[-1,9]*sol[-1,9])-3*mu*sol[-1,9]*sol[-1,9]*sol[-1,9]*sol[-1,9]*sol[-1,9]/((K*K*K+sol[-1,9]*sol[-1,9]*sol[-1,9])*(K*K*K+sol[-1,9]*sol[-1,9]*sol[-1,9])))*(2*sol[-1,10]*sol[-1,11]/sol[-1,9]-sol[-1,10]*sol[-1,7]-sol[-1,9]*sol[-1,11])/(mu*sol[-1,9]*sol[-1,9]*sol[-1,9]/(K*K*K+sol[-1,9]*sol[-1,9]*sol[-1,9])+eps)
+                if lambdaac==0 and lambdaa!=0:
+                    mia[h]=sol[-1,12]-np.log(lambdaa)
+                if lambdaac!=0 and lambdaa==0:
+                    mia[h]=sol[-1,12]+np.log(lambdaac)
+                if lambdaac==0 and lambdaa==0:
+                    mia[h]=sol[-1,12]
+                if lambdaac!=0 and lambdaa!=0:
+                    mia[h]=sol[-1,12]+np.log(lambdaac)-np.log(lambdaa)
+                sol[-1,7]=b1a[h]
+                sol[-1,8]=b2a[h]
+                sol[-1,9]=c1a[h]
+                sol[-1,10]=c2a[h]
+                sol[-1,11]=bca[h]
+                sol[-1,12]=mia[h]
+                
+            mi[h]=mia[h]+mic[h]
+            a+=updates[index-1][0] #update of the SSA trajectories
+            b+=updates[index-1][1]
+            c+=updates[index-1][2]
+        return at[:-1],bt[:-1],ct[:-1],b1ac[:-1],b2ac[:-1],a1c[:-1],a2c[:-1],b1c[:-1],b2c[:-1],abc[:-1],b1a[:-1],b2a[:-1],c1a[:-1],c2a[:-1],bca[:-1],mia[:-1],mic[:-1],mi[:-1]
+
+def parallelisationBS(core,MC,iniconds,const,params,laenge,timevec,exact=False,dim=50):
     '''
     Parallelisation of the Monte Carlo integration of the path mutual information between A and C
 
@@ -208,45 +442,94 @@ def parallelisationBS(core,MC,iniconds,const,params,laenge,timevec):
     trajectory of A, of B, of C, trajectory the expected value of of A conditional on B and C, its second moment, expected value of A given C, its second moment, B given C, its second moment, C given A, its second moment, B given A, its second moment, transfer entropy C->A, transfer entropy A->C, path mutual information
     
     '''
-    gtdata=[] #definition of the final arrays
-    rtdata=[]
-    ptdata=[]
-    r1gpdata=[]
-    r2gpdata=[]
-    r1pdata=[]
-    r2pdata=[]
-    g1pdata=[]
-    g2pdata=[]
-    grpdata=[]
-    r1gdata=[]
-    r2gdata=[]
-    p1gdata=[]
-    p2gdata=[]
-    migdata=[]
-    mipdata=[]
-    midata=[]
-    with Pool(core) as pool: #parallelisation
-        results = pool.map(partial(computeTrajectoryBS,iniconds=iniconds,const=const,params=params,laenge=laenge,destime=timevec), [k for k in range(MC)])
-        for r in results:
-            gt_temp,rt_temp,pt_temp,r1gp_temp,r2gp_temp,g1p_temp,g2p_temp,r1p_temp,r2p_temp,grp_temp,r1g_temp,r2g_temp,p1g_temp,p2g_temp,rpg_temp,mig_temp,mip_temp,mi_temp = r
-            gtdata.append(gt_temp) #collecting all the single trajectories 
-            rtdata.append(rt_temp)
-            ptdata.append(pt_temp)
-            r1gpdata.append(r1gp_temp)
-            r2gpdata.append(r2gp_temp)
-            r1pdata.append(r1p_temp)
-            r1gdata.append(r1g_temp)
-            r2gdata.append(r2g_temp)
-            r2pdata.append(r2p_temp)
-            g1pdata.append(g1p_temp)
-            g2pdata.append(g2p_temp)
-            grpdata.append(grp_temp)
-            p1gdata.append(p1g_temp)
-            p2gdata.append(p2g_temp)
-            migdata.append(mig_temp)
-            mipdata.append(mip_temp)
-            midata.append(mi_temp)
-        return gtdata,rtdata,ptdata,r1gpdata,r2gpdata,g1pdata,g2pdata,r1pdata,r2pdata,grpdata,r1gdata,r2gdata,p1gdata,p2gdata,migdata,mipdata,midata
+    if exact==True:
+        atdata=[] #definition of the final arrays
+        btdata=[]
+        ctdata=[]
+        b1acdata=[]
+        b2acdata=[]
+        b1cdata=[]
+        b2cdata=[]
+        a1cdata=[]
+        a2cdata=[]
+        abcdata=[]
+        b1adata=[]
+        b2adata=[]
+        c1adata=[]
+        c2adata=[]
+        miadata=[]
+        micdata=[]
+        midata=[]
+        p_acdata=[]
+        p_cdata=[]
+        p_adata=[]
+        miexactdata=[]
+        with Pool(core) as pool: #parallelisation
+            results = pool.map(partial(computeTrajectoryBS,iniconds=iniconds,const=const,params=params,laenge=laenge,destime=timevec), [k for k in range(MC)])
+            for r in results:
+                at_temp,bt_temp,ct_temp,miexacttemp,pt_ac_temp,pt_c_temp,pt_a_temp,b1ac_temp,b2ac_temp,a1c_temp,a2c_temp,b1c_temp,b2c_temp,abc_temp,b1a_temp,b2a_temp,c1a_temp,c2a_temp,bca_temp,mia_temp,mic_temp,mi_temp = r
+                atdata.append(at_temp) #collecting all the single trajectories 
+                btdata.append(bt_temp)
+                ctdata.append(ct_temp)
+                b1acdata.append(b1ac_temp)
+                b2acdata.append(b2ac_temp)
+                b1cdata.append(b1c_temp)
+                b1adata.append(b1a_temp)
+                b2adata.append(b2a_temp)
+                b2cdata.append(b2c_temp)
+                a1cdata.append(a1c_temp)
+                a2cdata.append(a2c_temp)
+                abcdata.append(abc_temp)
+                c1adata.append(c1a_temp)
+                c2adata.append(c2a_temp)
+                miadata.append(mia_temp)
+                micdata.append(mic_temp)
+                midata.append(mi_temp)
+                p_acdata.append(pt_ac_temp)
+                p_cdata.append(pt_c_temp)
+                p_adata.append(pt_a_temp)
+                miexactdata.append(miexacttemp)
+            return atdata,btdata,ctdata,p_acdata,p_cdata,p_adata,miexactdata,b1acdata,b2acdata,a1cdata,a2cdata,b1cdata,b2cdata,abcdata,b1adata,b2adata,c1adata,c2adata,miadata,micdata,midata
+    else:
+        atdata=[] #definition of the final arrays
+        btdata=[]
+        ctdata=[]
+        b1acdata=[]
+        b2acdata=[]
+        b1cdata=[]
+        b2cdata=[]
+        a1cdata=[]
+        a2cdata=[]
+        abcdata=[]
+        b1adata=[]
+        b2adata=[]
+        c1adata=[]
+        c2adata=[]
+        miadata=[]
+        micdata=[]
+        midata=[]
+        with Pool(core) as pool: #parallelisation
+            results = pool.map(partial(computeTrajectoryBS,iniconds=iniconds,const=const,params=params,laenge=laenge,destime=timevec), [k for k in range(MC)])
+            for r in results:
+                at_temp,bt_temp,ct_temp,b1ac_temp,b2ac_temp,a1c_temp,a2c_temp,b1c_temp,b2c_temp,abc_temp,b1a_temp,b2a_temp,c1a_temp,c2a_temp,bca_temp,mia_temp,mic_temp,mi_temp = r
+                atdata.append(at_temp) #collecting all the single trajectories 
+                btdata.append(bt_temp)
+                ctdata.append(ct_temp)
+                b1acdata.append(b1ac_temp)
+                b2acdata.append(b2ac_temp)
+                b1cdata.append(b1c_temp)
+                b1adata.append(b1a_temp)
+                b2adata.append(b2a_temp)
+                b2cdata.append(b2c_temp)
+                a1cdata.append(a1c_temp)
+                a2cdata.append(a2c_temp)
+                abcdata.append(abc_temp)
+                c1adata.append(c1a_temp)
+                c2adata.append(c2a_temp)
+                miadata.append(mia_temp)
+                micdata.append(mic_temp)
+                midata.append(mi_temp)
+            return atdata,btdata,ctdata,b1acdata,b2acdata,a1cdata,a2cdata,b1cdata,b2cdata,abcdata,b1adata,b2adata,c1adata,c2adata,miadata,micdata,midata
     
 def MonteCarlo(data,MC):
     '''
@@ -274,6 +557,8 @@ def bistableswitch(y,t,c,params):
           r*c[4]-p*c[5]]
     return dydt
     
+
+
     
     
     

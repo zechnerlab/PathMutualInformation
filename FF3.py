@@ -35,7 +35,7 @@ from analyticalfunctions import gaussrate2node,evolveFF2_analytical #analytical 
 MC=10000 #sample size for Monte Carlo average; min=5; lowering the sample size will speed up the calculation; for the exact calculation it is recommended to take a low sample size
 dim=50 #dimension of the lattice for numerically integrating the filtering equation
 
-const={"c1": 1,"c2":0.1,"c3":1,"c4":0.1,"c5":1,"c6":0.1} #reaction constants
+const={"k1": 1,"k2":0.1,"k3":1,"k4":0.1,"k5":1,"k6":0.1} #reaction constants
 const=list(const.values())
 a0=10 
 b0=100
@@ -73,7 +73,7 @@ if __name__ == '__main__': #Calculation of the path mutual information, its rate
     plt.ylabel(r"Mutual Information I")
     plt.grid(linewidth=2)
     plt.tight_layout()
-    plt.savefig('Mifinal.pdf',dpi=250)
+    plt.savefig('Mifinal.png',dpi=250)
     plt.show()
     
     plt.figure(1,figsize=(10,10))
@@ -87,7 +87,7 @@ if __name__ == '__main__': #Calculation of the path mutual information, its rate
     plt.ylabel(r"Mutual Information Rate i")
     plt.grid(linewidth=2)
     plt.tight_layout()
-    plt.savefig('ratefinal.pdf',dpi=250)
+    plt.savefig('ratefinal.png',dpi=250)
     plt.show()
 #%% Obtaining rate points numerically for different reaction velocities (figure 2) (Alternatively, our already generated data can be used)
 if __name__ == '__main__': 
@@ -260,7 +260,7 @@ if __name__ == '__main__':
     plt.xlabel(r"Relative Reaction Velocity $v_X$")
     plt.ylabel("Mutual Information Rate i")
     plt.tight_layout()
-    plt.savefig('RRV.pdf', dpi=250)
+    plt.savefig('RRV.png', dpi=250)
     plt.show()
      
     plt.figure(1,figsize=(10,10))
@@ -274,7 +274,7 @@ if __name__ == '__main__':
     plt.xlabel(r"Relative Reaction Velocity $v_A$")
     plt.ylabel("Mutual Information Rate i")
     plt.tight_layout()
-    plt.savefig('vA.pdf', dpi=250)
+    plt.savefig('vA.png', dpi=250)
     plt.show()       
 #%% Calculating the path mutual information of the two node network, comparing it to the gaussian mutual information and generating figure 2d
 if __name__ == '__main__': 
@@ -318,7 +318,7 @@ if __name__ == '__main__':
     plt.xlabel(r"Relative Reaction Velocity $v_C$")
     plt.ylabel("Mutual Information Rate i")
     plt.tight_layout()
-    plt.savefig('CompbtwModels.pdf', dpi=250)
+    plt.savefig('CompbtwModels.png', dpi=250)
     plt.show()
             
             
