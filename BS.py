@@ -20,7 +20,7 @@ import matplotlib #for plotting
 import matplotlib.pyplot as plt
 
 from BSfunctions import computeTrajectoryBS,parallelisationBS,evolveBS,MonteCarlo,bistableswitch #imports the main algorithm, its parallelisation and functions needed within the algorithm
-
+from BSfunctions import mean2d,mean2d_2,mean2d_kc,mean2d_kc_2
 MC=500 #sample size for Monte Carlo average (smaller sample size than used for the paper)
 
 c0=100 #20
@@ -169,5 +169,53 @@ if __name__ == '__main__':
     plt.tight_layout()
     plt.savefig('Bifurcation.png',dpi=250)
     plt.show()
+
+#%% generating quasi-exact example trajectories as in appendix 
+
+if __name__ == '__main__': #integration of conditional moments and mutual information/transfer entropy for mu=0.5
+    params=[K,eps,0.5]
+    iniconds=[10,10,10]
+    timevec=np.linspace(0,200,300)
+    at,bt,ct,p_ac,p_c,p_a,miaexact,micexact,b1ac,b2ac,a1c,a2c,b1c,b2c,abc,b1a,b2a,c1a,c2a,mia,mia2,mic,mic2,mi,miaexact2,micexact2=parallelisationBS(1,1,iniconds,const,params,int(len(timevec)+1),timevec,exact=True,dim=70)
     
+    kc_a=params[2]*c1a*c1a*c1a/(K*K*K+c1a*c1a*c1a)+eps
+    kc2_a=(params[2]*c1a*c1a*c1a/(K*K*K+c1a*c1a*c1a)+eps)*(params[2]*c1a*c1a*c1a/(K*K*K+c1a*c1a*c1a)+eps)+(3*params[2]*c1a*c1a/(K*K*K+c1a*c1a*c1a)-3*params[2]*c1a*c1a*c1a*c1a*c1a/((K*K*K+c1a*c1a*c1a)*(K*K*K+c1a*c1a*c1a)))*(3*params[2]*c1a*c1a/(K*K*K+c1a*c1a*c1a)-3*params[2]*c1a*c1a*c1a*c1a*c1a/((K*K*K+c1a*c1a*c1a)*(K*K*K+c1a*c1a*c1a)))*(c2a-c1a*c1a)
+    meanc_a,meanc2_a,meankc_a,meankc2_a=[np.zeros(int(len(timevec)+1)) for i in range(4)]
+    dim=70
+    for i in range(int(len(timevec)+1)):
+        meanc_a[i]=mean2d(p_a[i],dim) #mean of b
+        meanc2_a[i]=mean2d_2(p_a[i],dim)
+        meankc_a[i]=mean2d_kc(p_a[i],dim,params)
+        meankc2_a[i]=mean2d_kc_2(p_a[i],dim,params)
+         
+    matplotlib.rc('font',size=30)
+    plt.rcParams['ps.useafm']=True
+    plt.rcParams['axes.linewidth'] = 2
+    matplotlib.rc('font',**{'family':'sans-serif','sans-serif':['FreeSans']})
+    plt.rcParams['pdf.fonttype'] = 42
+    plt.figure(1,figsize=(10,10))
+    plt.plot(timevec,kc_a,'b',linewidth=3)
+    plt.plot(timevec,meankc_a[:-1],'g',linewidth=3)
+    plt.fill_between(timevec,kc_a-np.sqrt(kc2_a-np.array(kc_a)*np.array(kc_a)),kc_a+np.sqrt(kc2_a-np.array(kc_a)*np.array(kc_a)),color='b',alpha=0.3)
+    plt.fill_between(timevec,meankc_a[:-1]-np.sqrt(meankc2_a[:-1]-np.array(meankc_a[:-1])*np.array(meankc_a[:-1])),meankc_a[:-1]+np.sqrt(meankc2_a[:-1]-np.array(meankc_a[:-1])*np.array(meankc_a[:-1])),color='g',alpha=0.3)
+    plt.xlabel(r'Time t')
+    plt.ylabel(r'$\mathbb{E}[k_1(C(t))|A_0^t]$')
+    plt.axis([0,200,0,0.7])
+    plt.grid(linewidth=3)
+    plt.tight_layout()
+    plt.savefig('QEkofc.pdf',dpi=250)
+    plt.show()
+    
+    plt.figure(1,figsize=(10,10))
+    plt.plot(timevec,c1a,'b',linewidth=3)
+    plt.plot(timevec,meanc_a[:-1],'g',linewidth=3)
+    plt.fill_between(timevec,c1a-np.sqrt(c2a-np.array(c1a)*np.array(c1a)),kc_a+np.sqrt(c2a-np.array(c1a)*np.array(c1a)),color='b',alpha=0.3)
+    plt.fill_between(timevec,meanc_a[:-1]-np.sqrt(meanc2_a[:-1]-np.array(meanc_a[:-1])*np.array(meanc_a[:-1])),meanc_a[:-1]+np.sqrt(meanc2_a[:-1]-np.array(meanc_a[:-1])*np.array(meanc_a[:-1])),color='g',alpha=0.3)
+    plt.xlabel(r'Time t')
+    plt.ylabel(r'$\mathbb{E}[C(t)|A_0^t]$')
+    plt.axis([0,200,0,70])
+    plt.grid(linewidth=3)
+    plt.tight_layout()
+    plt.savefig('QE.pdf',dpi=250)
+    plt.show()
 
