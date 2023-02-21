@@ -39,7 +39,7 @@ if __name__ == '__main__':
         a_g,b_g,a1b,a2b,miclo,miclosq,rateclo=parallelisationAB(core,MC,exact,iniconds,const,dim,laenge,timevec)
         
     mivar=variance(miclo,miclosq) #variance of the path mutual information 
-    ratevar=variance(rateclo,miclosq[:-1]/(timevec*timevec)) #variance of the path mutual information rate   
+    ratevar=variance(rateclo,miclosq/(timevec*timevec)) #variance of the path mutual information rate   
 
 #%% Reproducing the plot in the appendix, works only for exact==True
 if __name__ == '__main__':
