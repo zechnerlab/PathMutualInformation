@@ -392,6 +392,7 @@ def computeTrajectoryAB(n,exact,iniconds,const,dim,laenge,destime):
             propensities=[const[0], const[1]*a, const[2]*a, const[3]*b]
             if h<len(destime):
                 while destime[h]<(t+time):
+                    y0=[sol[-1,0],sol[-1,1],sol[-1,2]]
                     timevec=np.linspace(tau,destime[h],5)
                     sol=odeint(evolveFF2Node,y0,timevec, args=(a,const))
                     tau=destime[h]
@@ -585,7 +586,6 @@ def parallelisationAB(core,MC,exact,iniconds,const,dim,laenge,timevec):
                 ag,bg,a1bg,a2bg,miclog,miclosqg = r
                 a_g += ag
                 b_g += bg
-                prob += probg
                 a1b += a1bg
                 a2b += a2bg
                 mi_closured += miclog
